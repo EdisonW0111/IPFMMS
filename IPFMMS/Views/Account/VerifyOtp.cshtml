@@ -1,0 +1,218 @@
+﻿@model IPFMMS.ViewModels.VerifyOtpViewModel
+
+@{
+    ViewData["Title"] = "Verify Email";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1" />
+
+    <title>Verify Email - IPFMMS</title>
+
+    <link rel="stylesheet"
+          href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <link rel="stylesheet"
+          href="~/css/verify-otp.css"
+          asp-append-version="true" />
+</head>
+<body>
+    <main class="verify-container">
+        <div class="verify-card">
+
+            <a asp-controller="Account"
+               asp-action="Register"
+               class="back-link">
+                &#8592; Back to Register
+            </a>
+
+            <img src="~/images/long_logo.png"
+                 alt="IPFMMS Logo"
+                 class="verify-logo" />
+
+            <div class="verify-icon" aria-hidden="true">
+                &#9993;
+            </div>
+
+            <h1 class="verify-title">
+                Verify Your Email
+            </h1>
+
+            <p class="verify-description">
+                Enter the 6-digit verification code
+                sent to your email address.
+            </p>
+
+            <div class="verify-email">
+                @Model.Email
+            </div>
+
+            @if (TempData["OtpNotice"] != null)
+            {
+                <div class="alert alert-info" role="status">
+                    @TempData["OtpNotice"]
+                </div>
+            }
+
+            <form asp-controller="Account"
+                  asp-action="VerifyOtp"
+                  method="post">
+
+                @Html.AntiForgeryToken()
+
+                <input asp-for="UserId" type="hidden" />
+
+                <div asp-validation-summary="ModelOnly"
+                     class="text-danger small mb-3"></div>
+
+                <label asp-for="OtpCode"
+                       class="otp-label">
+                    Verification Code
+                </label>
+
+                <input asp-for="OtpCode"
+                       class="otp-input"
+                       type="text"
+                       inputmode="numeric"
+                       autocomplete="one-time-code"
+                       maxlength="6"
+                       placeholder="000000" />
+
+                <span asp-validation-for="OtpCode"
+                      class="text-danger small d-block mt-2"></span>
+
+                <button type="submit"
+                        class="verify-button">
+                    Verify Email
+                </button>
+            </form>
+
+            <div class="resend-section">
+                <form asp-controller="Account"
+                      asp-action="ResendOtp"
+                      method="post"
+                      id="resendOtpForm">
+
+                    @Html.AntiForgeryToken()
+
+                    <input type="hidden"
+                           name="userId"
+                           value="@Model.UserId" />
+
+                    <button type="submit"
+                            id="resendOtpButton"
+                            class="resend-button"
+                            data-available-at="@(Model.ResendAvailableAtUtc.HasValue
+                                ? DateTime.SpecifyKind(
+                                    Model.ResendAvailableAtUtc.Value,
+                                    DateTimeKind.Utc).ToString("O")
+                                : "")"
+                            disabled="@(Model.ResendCooldownSeconds > 0)">
+                        @(Model.ResendCooldownSeconds > 0
+                                                ? $"Resend OTP ({Model.ResendCooldownSeconds}s)"
+                                                : "Resend OTP")
+                    </button>
+
+                    <div id="resendCountdown"
+                         class="resend-countdown"
+                         aria-live="polite">
+                        @if (Model.ResendCooldownSeconds > 0)
+                        {
+                            <text>You can request a new code after the countdown.</text>
+                        }
+                        else
+                        {
+                            <text>Didn't receive the verification code?</text>
+                        }
+                    </div>
+                </form>
+            </div>
+
+            <div class="login-section">
+                Already have an account?
+                <a asp-controller="Account"
+                   asp-action="Login">
+                    Log In
+                </a>
+            </div>
+
+            <p class="verify-footer">
+                Your verification code expires in 5 minutes.
+            </p>
+
+        </div>
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const resendButton =
+                document.getElementById("resendOtpButton");
+
+            const countdownText =
+                document.getElementById("resendCountdown");
+
+            const resendForm =
+                document.getElementById("resendOtpForm");
+                let isResending = false;
+
+            const availableAtText = resendButton.dataset.availableAt;
+
+            const availableAt = availableAtText
+            ? new Date(availableAtText).getTime()
+            : 0;
+
+            if (isResending) {
+                return;
+            }
+
+            function updateCountdown() {
+                const remaining = Math.max(
+                    0,
+                    Math.ceil((availableAt - Date.now()) / 1000)
+                );
+
+                if (remaining > 0) {
+                    resendButton.disabled = true;
+                    resendButton.textContent = `Resend OTP (${remaining}s)`;
+                    countdownText.textContent =
+                        "You can request a new code after the countdown.";
+                } else {
+                    resendButton.disabled = false;
+                    resendButton.textContent = "Resend OTP";
+                    countdownText.textContent =
+                        "Didn't receive the verification code?";
+                }
+            }
+
+            updateCountdown();
+            setInterval(updateCountdown, 1000);
+
+            // Prevent repeatedly submitting the resend form.
+            resendForm.addEventListener("submit", function () {
+                isResending = true;
+                resendButton.disabled = true;
+                resendButton.textContent = "Sending...";
+            });
+
+            // Allow digits only in the OTP input.
+            const otpInput = document.getElementById("OtpCode");
+
+            if (otpInput) {
+                otpInput.addEventListener("input", function () {
+                    this.value = this.value.replace(/\D/g, "").slice(0, 6);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

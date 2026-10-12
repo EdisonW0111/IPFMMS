@@ -1,0 +1,64 @@
+﻿@{
+    ViewData["Title"] = "Email Verified Successfully";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1" />
+
+    <title>Email Verified - IPFMMS</title>
+
+    <link rel="stylesheet"
+          href="~/css/verification-success.css"
+          asp-append-version="true" />
+</head>
+<body>
+
+    <main class="success-container">
+        <div class="success-card">
+
+            <img src="~/images/long_logo.png"
+                 alt="IPFMMS Logo"
+                 class="success-logo" />
+
+            <div class="success-icon"
+                 aria-hidden="true">
+                &#10003;
+            </div>
+
+            <h1 class="success-title">
+                Email Verified Successfully!
+            </h1>
+
+            <p class="success-description">
+                Your email address has been verified,
+                and your IPFMMS account is now
+                <span class="success-highlight">Active</span>.
+
+                <br />
+
+                You can now log in to start managing
+                your finances.
+            </p>
+
+            <a asp-controller="Account"
+               asp-action="Login"
+               class="login-button">
+                Go to Login
+            </a>
+
+            <p class="success-footer">
+                Intelligent Personal Finance Management
+                and Monitoring System
+            </p>
+
+        </div>
+    </main>
+
+</body>
+</html>

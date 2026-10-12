@@ -1,0 +1,173 @@
+﻿@model IPFMMS.ViewModels.RegisterViewModel
+
+@{
+    ViewData["Title"] = "Create Account";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Register | IPFMMS</title>
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/register.css" asp-append-version="true" />
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+            async defer></script>
+</head>
+<body>
+
+    <div class="register-page">
+        <div class="register-card">
+
+            <div class="brand">
+                <img src="~/images/logo.png"
+                     alt="IPFMMS Logo"
+                     class="brand-logo" />
+                <span>IPFMMS</span>
+            </div>
+
+            <div class="register-heading">
+                <div class="eyebrow">GET STARTED</div>
+                <h1>Create your account</h1>
+                <p>
+                    Take control of your finances.
+                    Create your account to start managing your money smarter.
+                </p>
+            </div>
+
+            <form asp-controller="Account"
+                  asp-action="Register"
+                  method="post">
+
+                @Html.AntiForgeryToken()
+
+                <div asp-validation-summary="ModelOnly"
+                     class="text-danger mb-3"></div>
+
+                <div class="form-grid">
+
+                    <div class="field">
+                        <label asp-for="FullName"></label>
+                        <input asp-for="FullName"
+                               class="form-control"
+                               placeholder="Enter your full name"
+                               autocomplete="name" />
+                        <span asp-validation-for="FullName"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="Email"></label>
+                        <input asp-for="Email"
+                               class="form-control"
+                               placeholder="you@example.com"
+                               autocomplete="email" />
+                        <span asp-validation-for="Email"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="PhoneNumber"></label>
+                        <input asp-for="PhoneNumber"
+                               class="form-control"
+                               placeholder="0123456789(Optional)"
+                               autocomplete="tel" />
+                        <span asp-validation-for="PhoneNumber"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="Password"></label>
+                        <div class="password-field">
+                            <input asp-for="Password"
+                                   class="form-control"
+                                   placeholder="Create a password"
+                                   autocomplete="new-password" />
+                            <button type="button"
+                                    class="password-toggle"
+                                    data-target="Password"
+                                    aria-label="Show password"
+                                    aria-pressed="false">
+                                Show
+                            </button>
+                        </div>
+                        <span asp-validation-for="Password"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="field">
+                        <label asp-for="ConfirmPassword"></label>
+                        <div class="password-field">
+                            <input asp-for="ConfirmPassword"
+                                   class="form-control"
+                                   placeholder="Confirm your password"
+                                   autocomplete="new-password" />
+                            <button type="button"
+                                    class="password-toggle"
+                                    data-target="ConfirmPassword"
+                                    aria-label="Show confirmed password"
+                                    aria-pressed="false">
+                                Show
+                            </button>
+                        </div>
+                        <span asp-validation-for="ConfirmPassword"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="turnstile-container">
+                        <div class="cf-turnstile"
+                             data-sitekey="@ViewBag.TurnstileSiteKey"
+                             data-theme="light"
+                             data-action="register">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="password-hint">
+                    Use at least 8 characters, including uppercase,
+                    lowercase, a number and a special character.
+                </div>
+
+                <button type="submit" class="register-btn">
+                    Create Account
+                    <span aria-hidden="true">→</span>
+                </button>
+
+                <div class="login-footer">
+                    Already have an account?
+                    <a asp-controller="Account" asp-action="Login">
+                        Sign in
+                    </a>
+                </div>
+
+            </form>
+        </div>
+
+        <div class="page-footer">
+            © @DateTime.Now.Year IPFMMS · Intelligent Personal Finance Management
+        </div>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <script>
+        document.querySelectorAll(".password-toggle").forEach(button => {
+            button.addEventListener("click", () => {
+                const input = document.getElementById(button.dataset.target);
+                if (!input) return;
+
+                const showing = input.type === "password";
+                input.type = showing ? "text" : "password";
+                button.textContent = showing ? "Hide" : "Show";
+                button.setAttribute("aria-pressed", String(showing));
+            });
+        });
+    </script>
+
+</body>
+</html>
