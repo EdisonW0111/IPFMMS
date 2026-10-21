@@ -1,6 +1,8 @@
-using System.Diagnostics;
+using IPFMMS.ViewModels;
 using IPFMMS.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Diagnostics;
 
 namespace IPFMMS.Controllers
 {
@@ -13,6 +15,7 @@ namespace IPFMMS.Controllers
             _logger = logger;
         }
 
+        [Authorize]
         public IActionResult Index()
         {
             return View();

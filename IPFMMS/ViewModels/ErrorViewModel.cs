@@ -1,4 +1,4 @@
-namespace IPFMMS.Models
+namespace IPFMMS.ViewModels
 {
     public class ErrorViewModel
     {

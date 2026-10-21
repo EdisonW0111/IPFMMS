@@ -1,0 +1,119 @@
+﻿@model IPFMMS.ViewModels.UpdateProfileViewModel
+
+@{
+    ViewData["Title"] = "My Profile";
+    Layout = "~/Views/Shared/_DashboardLayout.cshtml";
+}
+
+@section Styles {
+    <link rel="stylesheet"
+          href="~/css/update-profile.css"
+          asp-append-version="true" />
+}
+
+<div class="profile-page">
+
+    <div class="profile-page-heading">
+        <h2>Personal Information</h2>
+        <p>
+            Manage your personal details and keep
+            your account information up to date.
+        </p>
+    </div>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success" role="status">
+            <i class="bi bi-check-circle me-2"></i>
+            @TempData["SuccessMessage"]
+        </div>
+    }
+
+    <div class="profile-edit-card">
+
+        <div class="profile-card-heading">
+            <div class="profile-card-icon">
+                <i class="bi bi-person"></i>
+            </div>
+
+            <div>
+                <h3>Profile Details</h3>
+                <p>Update your basic account information.</p>
+            </div>
+        </div>
+
+        <form asp-controller="Account"
+              asp-action="UpdateProfile"
+              method="post">
+
+            @Html.AntiForgeryToken()
+
+            <div asp-validation-summary="ModelOnly"
+                 class="text-danger mb-3"></div>
+
+            <div class="profile-form-group">
+                <label asp-for="FullName"
+                       class="profile-form-label"></label>
+
+                <input asp-for="FullName"
+                       class="profile-form-input"
+                       placeholder="Enter your full name"
+                       autocomplete="name" />
+
+                <span asp-validation-for="FullName"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="profile-form-group">
+                <label asp-for="Email"
+                       class="profile-form-label"></label>
+
+                <input asp-for="Email"
+                       type="email"
+                       class="profile-form-input readonly-input"
+                       readonly />
+
+                <p class="profile-input-hint">
+                    Your email address cannot be changed here.
+                </p>
+            </div>
+
+            <div class="profile-form-group">
+                <label asp-for="PhoneNumber"
+                       class="profile-form-label"></label>
+
+                <input asp-for="PhoneNumber"
+                       type="tel"
+                       class="profile-form-input"
+                       placeholder="Enter your phone number (Optional)"
+                       autocomplete="tel" />
+
+                <span asp-validation-for="PhoneNumber"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="profile-form-actions">
+
+                <a asp-controller="Dashboard"
+                   asp-action="Finance"
+                   class="profile-cancel-button">
+                    Cancel
+                </a>
+
+                <button type="submit"
+                        class="profile-save-button">
+                    <i class="bi bi-check-lg"></i>
+                    Save Changes
+                </button>
+
+            </div>
+        </form>
+
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+}

@@ -3,6 +3,7 @@ using IPFMMS.Data;
 using IPFMMS.Services;
 using Microsoft.AspNetCore.Identity;
 using IPFMMS.Models;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,31 @@ builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<OtpService>();
 builder.Services.AddHttpClient<TurnstileService>();
+builder.Services.AddScoped<CustomCookieAuthenticationEvents>();
+builder.Services
+    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        // Authentication page routes
+        options.LoginPath = "/Account/Login";
+        options.LogoutPath = "/Account/Logout";
+        options.AccessDeniedPath = "/Account/AccessDenied";
+
+        // Cookie security
+        options.Cookie.Name = "IPFMMS.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+
+        // Default login session
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+        options.SlidingExpiration = true;
+
+        options.EventsType = typeof(CustomCookieAuthenticationEvents);
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<LoginAttemptService>();
 
 var app = builder.Build();
 
@@ -45,10 +71,11 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern: "{controller=Dashboard}/{action=Index}/{id?}");
 
 app.Run();

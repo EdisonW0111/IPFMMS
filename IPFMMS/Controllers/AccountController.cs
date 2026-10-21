@@ -5,7 +5,10 @@ using IPFMMS.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 
 namespace IPFMMS.Controllers
 {
@@ -18,6 +21,7 @@ namespace IPFMMS.Controllers
         private readonly IPasswordHasher<User> _passwordHasher;
         private readonly IConfiguration _configuration;
         private readonly TurnstileService _turnstileService;
+        private readonly LoginAttemptService _loginAttemptService;
 
         public AccountController(
             ApplicationDbContext context,
@@ -26,7 +30,8 @@ namespace IPFMMS.Controllers
             OtpService otpService,
             IPasswordHasher<User> passwordHasher,
             IConfiguration configuration,
-            TurnstileService turnstileService)
+            TurnstileService turnstileService,
+            LoginAttemptService loginAttemptService)
         {
             _context = context;
             _idGenerator = idGenerator;
@@ -35,6 +40,7 @@ namespace IPFMMS.Controllers
             _passwordHasher = passwordHasher;
             _configuration = configuration;
             _turnstileService = turnstileService;
+            _loginAttemptService = loginAttemptService;
         }
 
         [HttpGet]
@@ -548,6 +554,350 @@ namespace IPFMMS.Controllers
                             (resendAvailableAt.Value - DateTime.UtcNow)
                             .TotalSeconds))
                     : 0;
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult Login()
+        {
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                return RedirectToAction("Index", "Home");
+            }
+
+            ViewBag.TurnstileSiteKey =
+                _configuration["Turnstile:SiteKey"];
+
+            return View(new LoginViewModel());
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Login(
+    LoginViewModel model,
+    [FromForm(Name = "cf-turnstile-response")] string? turnstileToken)
+        {
+            ViewBag.TurnstileSiteKey =
+                _configuration["Turnstile:SiteKey"];
+
+            if (!ModelState.IsValid)
+                return View(model);
+
+            string email = model.Email.Trim().ToLowerInvariant();
+
+            // 1. Check temporary lockout.
+            TimeSpan remainingLockout =
+                _loginAttemptService.GetRemainingLockout(email);
+
+            if (remainingLockout > TimeSpan.Zero)
+            {
+                ModelState.AddModelError(
+                    string.Empty,
+                    $"Too many unsuccessful login attempts. " +
+                    $"Please try again in " +
+                    $"{Math.Ceiling(remainingLockout.TotalSeconds)} seconds.");
+
+                return View(model);
+            }
+
+            // 2. Verify Cloudflare Turnstile.
+            bool captchaValid =
+                await _turnstileService.VerifyTokenAsync(turnstileToken);
+
+            if (!captchaValid)
+            {
+                ModelState.AddModelError(
+                    string.Empty,
+                    "CAPTCHA verification failed. Please try again.");
+
+                return View(model);
+            }
+
+            // 3. Find account.
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == email);
+
+            if (user == null)
+            {
+                _loginAttemptService.RecordFailedAttempt(email);
+
+                ModelState.AddModelError(
+                    string.Empty,
+                    "Invalid email address or password.");
+
+                return View(model);
+            }
+
+            // 4. Verify password hash.
+            var passwordResult = _passwordHasher.VerifyHashedPassword(
+                user,
+                user.PasswordHash,
+                model.Password);
+
+            if (passwordResult == PasswordVerificationResult.Failed)
+            {
+                _loginAttemptService.RecordFailedAttempt(email);
+
+                ModelState.AddModelError(
+                    string.Empty,
+                    "Invalid email address or password.");
+
+                return View(model);
+            }
+
+            // 5. Enforce account status.
+            if (!AccountStatus.CanLogin(user.AccountStatus))
+            {
+                ModelState.AddModelError(
+                    string.Empty,
+                    "Your account is not active. " +
+                    "Please complete email verification or contact support.");
+
+                return View(model);
+            }
+
+            // 6. Clear failed attempts after successful authentication.
+            _loginAttemptService.ClearAttempts(email);
+
+            // 7. Create authentication claims.
+            var claims = new List<Claim>
+    {
+        new Claim(ClaimTypes.NameIdentifier, user.UserId),
+        new Claim(ClaimTypes.Name, user.FullName),
+        new Claim(ClaimTypes.Email, user.Email),
+        new Claim(ClaimTypes.Role, user.Role)
+    };
+
+            var identity = new ClaimsIdentity(
+                claims,
+                CookieAuthenticationDefaults.AuthenticationScheme);
+
+            var principal = new ClaimsPrincipal(identity);
+
+            // 8. Configure Remember Me.
+            var authProperties = new AuthenticationProperties
+            {
+                IsPersistent = model.RememberMe,
+
+                ExpiresUtc = model.RememberMe
+                    ? DateTimeOffset.UtcNow.AddDays(30)
+                    : DateTimeOffset.UtcNow.AddMinutes(30),
+
+                AllowRefresh = !model.RememberMe
+            };
+
+            // 9. Sign in.
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                principal,
+                authProperties);
+
+            return RedirectToAction("Index", "Dashboard");
+        }
+
+        [HttpGet]
+        public IActionResult AccessDenied()
+        {
+            return Content(
+                "Access denied. You do not have permission to view this page.");
+        }
+
+        [HttpPost]
+        [Authorize]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Logout()
+        {
+            await HttpContext.SignOutAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme);
+
+            return RedirectToAction(nameof(Login));
+        }
+
+        [HttpGet]
+        [Authorize(Roles = "User")]
+        public async Task<IActionResult> UpdateProfile()
+        {
+            string? userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Challenge();
+
+            var user = await _context.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+                return NotFound();
+
+            var model = new UpdateProfileViewModel
+            {
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber
+            };
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "User")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateProfile(
+            UpdateProfileViewModel model)
+        {
+            string? userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+                return Challenge();
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+                return NotFound();
+
+            // The email field is displayed only.
+            // Never trust a submitted email address.
+            ModelState.Remove(nameof(model.Email));
+            model.Email = user.Email;
+
+            if (!ModelState.IsValid)
+                return View(model);
+
+            user.FullName = model.FullName.Trim();
+            user.PhoneNumber = string.IsNullOrWhiteSpace(model.PhoneNumber)
+                ? null
+                : model.PhoneNumber.Trim();
+
+            await _context.SaveChangesAsync();
+
+            // Refresh the username stored in the authentication cookie.
+            var currentAuth = await HttpContext.AuthenticateAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme);
+
+            if (currentAuth.Succeeded &&
+                currentAuth.Principal != null &&
+                currentAuth.Properties != null)
+            {
+                var identity = currentAuth.Principal.Identity
+                    as ClaimsIdentity;
+
+                if (identity != null)
+                {
+                    // Remove the old name claim.
+                    var oldNameClaim = identity.FindFirst(ClaimTypes.Name);
+
+                    if (oldNameClaim != null)
+                    {
+                        identity.RemoveClaim(oldNameClaim);
+                    }
+
+                    // Add the updated name.
+                    identity.AddClaim(
+                        new Claim(ClaimTypes.Name, user.FullName));
+
+                    // Preserve the existing login expiration and Remember Me.
+                    var authProperties = currentAuth.Properties;
+
+                    await HttpContext.SignInAsync(
+                        CookieAuthenticationDefaults.AuthenticationScheme,
+                        currentAuth.Principal,
+                        authProperties);
+                }
+            }
+
+            TempData["SuccessMessage"] =
+                "Your profile has been updated successfully.";
+
+            return RedirectToAction(nameof(UpdateProfile));
+        }
+
+        [HttpGet]
+        [Authorize(Roles = "User")]
+        public IActionResult ChangePassword()
+        {
+            return View(new ChangePasswordViewModel());
+        }
+
+        [HttpPost]
+        [Authorize(Roles = "User")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ChangePassword(
+            ChangePasswordViewModel model)
+        {
+            // 1. Validate form inputs.
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            // 2. Identify the logged-in user.
+            string? userId =
+                User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Challenge();
+            }
+
+            // 3. Retrieve user from MySQL.
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null ||
+                !AccountStatus.CanLogin(user.AccountStatus))
+            {
+                return Forbid();
+            }
+
+            // 4. Verify current password.
+            var currentPasswordResult =
+                _passwordHasher.VerifyHashedPassword(
+                    user,
+                    user.PasswordHash,
+                    model.CurrentPassword);
+
+            if (currentPasswordResult ==
+                PasswordVerificationResult.Failed)
+            {
+                ModelState.AddModelError(
+                    nameof(model.CurrentPassword),
+                    "Current password is incorrect.");
+
+                return View(model);
+            }
+
+            // 5. Prevent reusing the current password.
+            var newPasswordResult =
+                _passwordHasher.VerifyHashedPassword(
+                    user,
+                    user.PasswordHash,
+                    model.NewPassword);
+
+            if (newPasswordResult !=
+                PasswordVerificationResult.Failed)
+            {
+                ModelState.AddModelError(
+                    nameof(model.NewPassword),
+                    "New password must be different from your current password.");
+
+                return View(model);
+            }
+
+            // 6. Generate secure password hash.
+            user.PasswordHash = _passwordHasher.HashPassword(
+                user,
+                model.NewPassword);
+
+            // 7. Save new password to MySQL.
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Your password has been changed successfully.";
+
+            return RedirectToAction(nameof(ChangePassword));
         }
     }
 }

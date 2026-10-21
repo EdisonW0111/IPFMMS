@@ -1,0 +1,162 @@
+﻿@model IPFMMS.ViewModels.LoginViewModel
+
+@{
+    ViewData["Title"] = "Login";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1" />
+
+    <title>Login - IPFMMS</title>
+
+    <link rel="stylesheet"
+          href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+
+    <link rel="stylesheet"
+          href="~/css/login.css"
+          asp-append-version="true" />
+
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+            async defer></script>
+</head>
+<body>
+    <main class="login-container">
+        <div class="login-card">
+
+            <img src="~/images/long_logo.png"
+                 alt="IPFMMS Logo"
+                 class="login-logo" />
+
+            <h1 class="login-title">
+                Welcome Back
+            </h1>
+
+            <p class="login-description">
+                Log in to your IPFMMS account
+            </p>
+
+            <form asp-controller="Account"
+                  asp-action="Login"
+                  method="post">
+
+                @Html.AntiForgeryToken()
+
+                <div asp-validation-summary="ModelOnly"
+                     class="alert alert-danger"
+                     role="alert"></div>
+
+                <div class="mb-3">
+                    <label asp-for="Email"
+                           class="login-label"></label>
+
+                    <input asp-for="Email"
+                           type="email"
+                           class="login-input"
+                           placeholder="Enter your email address"
+                           autocomplete="username" />
+
+                    <span asp-validation-for="Email"
+                          class="validation-error"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Password"
+                           class="login-label"></label>
+
+                    <div class="password-wrapper">
+                        <input asp-for="Password"
+                               type="password"
+                               id="loginPassword"
+                               class="login-input"
+                               placeholder="Enter your password"
+                               autocomplete="current-password" />
+
+                        <button type="button"
+                                class="password-toggle"
+                                id="togglePassword"
+                                aria-label="Show password">
+                            Show
+                        </button>
+                    </div>
+
+                    <span asp-validation-for="Password"
+                          class="validation-error"></span>
+                </div>
+
+                <div class="login-options">
+                    <div>
+                        <input asp-for="RememberMe"
+                               type="checkbox"
+                               class="remember-checkbox" />
+
+                        <label asp-for="RememberMe"
+                               class="remember-label">
+                            Remember Me
+                        </label>
+                    </div>
+
+                    <a asp-controller="Account"
+                       asp-action="ForgotPassword"
+                       class="forgot-link">
+                        Forgot Password?
+                    </a>
+                </div>
+
+                <div class="turnstile-container">
+                    <div class="cf-turnstile"
+                         data-sitekey="@ViewBag.TurnstileSiteKey"
+                         data-theme="light"
+                         data-action="login">
+                    </div>
+                </div>
+
+                <button type="submit"
+                        class="login-button">
+                    Log In
+                </button>
+            </form>
+
+            <div class="register-section">
+                Don't have an account?
+                <a asp-controller="Account"
+                   asp-action="Register">
+                    Register
+                </a>
+            </div>
+
+        </div>
+    </main>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/jquery.validate.unobtrusive.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const passwordInput =
+                document.getElementById("loginPassword");
+
+            const toggleButton =
+                document.getElementById("togglePassword");
+
+            toggleButton.addEventListener("click", function () {
+                const isHidden = passwordInput.type === "password";
+
+                passwordInput.type = isHidden ? "text" : "password";
+                toggleButton.textContent = isHidden ? "Hide" : "Show";
+                toggleButton.setAttribute(
+                    "aria-label",
+                    isHidden ? "Hide password" : "Show password"
+                );
+            });
+        });
+    </script>
+</body>
+</html>
