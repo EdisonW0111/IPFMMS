@@ -14,6 +14,7 @@ namespace IPFMMS.Data
         public DbSet<User> Users { get; set; }
         public DbSet<EmailOTP> EmailOTPs { get; set; }
         public DbSet<IdCounter> IdCounters { get; set; }
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
         protected override void OnModelCreating(
             ModelBuilder modelBuilder)
@@ -53,6 +54,34 @@ namespace IPFMMS.Data
 
                 entity.Property(c => c.LastNumber)
                     .IsRequired();
+            });
+
+            modelBuilder.Entity<PasswordResetToken>(entity =>
+            {
+                entity.ToTable("PasswordResetTokens");
+
+                entity.HasKey(t => t.TokenId);
+
+                entity.Property(t => t.TokenId)
+                    .HasMaxLength(36);
+
+                entity.Property(t => t.UserId)
+                    .HasMaxLength(20)
+                    .IsRequired();
+
+                entity.Property(t => t.TokenHash)
+                    .HasMaxLength(64)
+                    .IsRequired();
+
+                entity.HasIndex(t => t.TokenHash)
+                    .IsUnique();
+
+                entity.HasIndex(t => t.UserId);
+
+                entity.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
         }

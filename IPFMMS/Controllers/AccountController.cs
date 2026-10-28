@@ -9,6 +9,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace IPFMMS.Controllers
 {
@@ -22,6 +23,7 @@ namespace IPFMMS.Controllers
         private readonly IConfiguration _configuration;
         private readonly TurnstileService _turnstileService;
         private readonly LoginAttemptService _loginAttemptService;
+        private readonly PasswordResetTokenService _passwordResetTokenService;
 
         public AccountController(
             ApplicationDbContext context,
@@ -31,7 +33,8 @@ namespace IPFMMS.Controllers
             IPasswordHasher<User> passwordHasher,
             IConfiguration configuration,
             TurnstileService turnstileService,
-            LoginAttemptService loginAttemptService)
+            LoginAttemptService loginAttemptService,
+            PasswordResetTokenService passwordResetTokenService)
         {
             _context = context;
             _idGenerator = idGenerator;
@@ -40,7 +43,8 @@ namespace IPFMMS.Controllers
             _passwordHasher = passwordHasher;
             _configuration = configuration;
             _turnstileService = turnstileService;
-            _loginAttemptService = loginAttemptService;
+            _loginAttemptService = loginAttemptService; 
+            _passwordResetTokenService = passwordResetTokenService;
         }
 
         [HttpGet]
@@ -148,7 +152,7 @@ namespace IPFMMS.Controllers
                     var recentOtps = await _context.EmailOTPs
                         .Where(o =>
                             o.UserId == userId &&
-                            o.Purpose == "Registration" &&
+                            o.Purpose == EmailOtpPurpose.Registration &&
                             o.CreatedDateTime >= now.AddHours(-1))
                         .OrderByDescending(o => o.CreatedDateTime)
                         .ToListAsync();
@@ -189,7 +193,7 @@ namespace IPFMMS.Controllers
                     var oldOtps = await _context.EmailOTPs
                         .Where(o =>
                             o.UserId == userId &&
-                            o.Purpose == "Registration" &&
+                            o.Purpose == EmailOtpPurpose.Registration &&
                             !o.IsVerified)
                         .ToListAsync();
 
@@ -207,7 +211,7 @@ namespace IPFMMS.Controllers
                     OtpId = otpId,
                     UserId = userId,
                     OtpCode = _otpService.HashOtp(userId, otpCode),
-                    Purpose = "Registration",
+                    Purpose = EmailOtpPurpose.Registration,
                     CreatedDateTime = now,
                     ExpiryDateTime = now.AddMinutes(5),
                     IsVerified = false,
@@ -317,7 +321,7 @@ namespace IPFMMS.Controllers
                 .FromSqlInterpolated(
                     $@"SELECT * FROM EmailOTPs
                WHERE UserId = {model.UserId}
-                 AND Purpose = {"Registration"}
+                 AND Purpose = {EmailOtpPurpose.Registration}
                  AND IsVerified = FALSE
                ORDER BY CreatedDateTime DESC, OtpId DESC
                LIMIT 1 FOR UPDATE")
@@ -433,7 +437,7 @@ namespace IPFMMS.Controllers
 
             var recentOtps = await _context.EmailOTPs
                 .Where(o => o.UserId == userId &&
-                            o.Purpose == "Registration" &&
+                            o.Purpose == EmailOtpPurpose.Registration &&
                             o.CreatedDateTime >= now.AddHours(-1))
                 .OrderByDescending(o => o.CreatedDateTime)
                 .ToListAsync();
@@ -467,7 +471,7 @@ namespace IPFMMS.Controllers
             // Invalidate all previous registration OTPs.
             var oldOtps = await _context.EmailOTPs
                 .Where(o => o.UserId == userId &&
-                            o.Purpose == "Registration" &&
+                            o.Purpose == EmailOtpPurpose.Registration &&
                             !o.IsVerified)
                 .ToListAsync();
 
@@ -484,7 +488,7 @@ namespace IPFMMS.Controllers
                 OtpId = otpId,
                 UserId = userId,
                 OtpCode = _otpService.HashOtp(userId, otpCode),
-                Purpose = "Registration",
+                Purpose = EmailOtpPurpose.Registration,
                 CreatedDateTime = now,
                 ExpiryDateTime = now.AddMinutes(5),
                 IsVerified = false,
@@ -536,7 +540,7 @@ namespace IPFMMS.Controllers
                 .AsNoTracking()
                 .Where(o =>
                     o.UserId == model.UserId &&
-                    o.Purpose == "Registration")
+                    o.Purpose == EmailOtpPurpose.Registration)
                 .OrderByDescending(o => o.CreatedDateTime)
                 .ThenByDescending(o => o.OtpId)
                 .FirstOrDefaultAsync();
@@ -562,7 +566,7 @@ namespace IPFMMS.Controllers
         {
             if (User.Identity?.IsAuthenticated == true)
             {
-                return RedirectToAction("Index", "Home");
+                return RedirectToAction("Index", "Dashboard");
             }
 
             ViewBag.TurnstileSiteKey =
@@ -666,7 +670,10 @@ namespace IPFMMS.Controllers
         new Claim(ClaimTypes.NameIdentifier, user.UserId),
         new Claim(ClaimTypes.Name, user.FullName),
         new Claim(ClaimTypes.Email, user.Email),
-        new Claim(ClaimTypes.Role, user.Role)
+        new Claim(ClaimTypes.Role, user.Role),
+
+        // Used to invalidate outdated login sessions.
+        new Claim("SecurityVersion", user.SecurityVersion.ToString())
     };
 
             var identity = new ClaimsIdentity(
@@ -892,12 +899,727 @@ namespace IPFMMS.Controllers
                 user,
                 model.NewPassword);
 
+            user.SecurityVersion++;
+
             // 7. Save new password to MySQL.
             await _context.SaveChangesAsync();
 
-            TempData["SuccessMessage"] = "Your password has been changed successfully.";
+            // Retrieve the current authentication ticket.
+            var currentAuth = await HttpContext.AuthenticateAsync(
+     CookieAuthenticationDefaults.AuthenticationScheme);
+
+            if (!currentAuth.Succeeded ||
+                currentAuth.Principal == null ||
+                currentAuth.Properties == null ||
+                currentAuth.Principal.Identity is not ClaimsIdentity identity)
+            {
+                // Password was changed, but the current session
+                // could not be refreshed safely.
+                await HttpContext.SignOutAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme);
+
+                return RedirectToAction(nameof(Login));
+            }
+
+            // Remove the previous security-version claim.
+            var oldVersionClaim = identity.FindFirst("SecurityVersion");
+
+            if (oldVersionClaim != null)
+            {
+                identity.RemoveClaim(oldVersionClaim);
+            }
+
+            // Add the latest security version from MySQL.
+            identity.AddClaim(
+                new Claim("SecurityVersion", user.SecurityVersion.ToString()));
+
+            // Preserve the current ticket properties, including
+            // Remember Me and the original expiration.
+            await HttpContext.SignInAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                currentAuth.Principal,
+                currentAuth.Properties);
+
+            TempData["SuccessMessage"] =
+                "Your password has been changed successfully.";
 
             return RedirectToAction(nameof(ChangePassword));
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public IActionResult ForgotPassword()
+        {
+            return View(new ForgotPasswordViewModel());
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [EnableRateLimiting("PasswordRecovery")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ForgotPassword(
+    ForgotPasswordViewModel model)
+        {
+            if (!ModelState.IsValid)
+                return View(model);
+
+            string email = model.Email.Trim().ToLowerInvariant();
+            TempData["ResetEmail"] = email;
+            TempData["ResetRequestTime"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+            DateTime now = DateTime.UtcNow;
+
+            // Use the same response for existing and unknown emails.
+            const string confirmationMessage =
+                "If this email is registered with an active account, " +
+                "a password reset verification code will be sent.";
+
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            // Lock the user row to serialize OTP requests.
+            var users = await _context.Users
+                .FromSqlInterpolated(
+                    $@"SELECT * FROM Users
+               WHERE Email = {email}
+               FOR UPDATE")
+                .AsTracking()
+                .ToListAsync();
+
+            var user = users.FirstOrDefault();
+
+            // Don't reveal whether the email is registered.
+            if (user == null ||
+                !AccountStatus.CanLogin(user.AccountStatus))
+            {
+                await transaction.RollbackAsync();
+
+                TempData["ResetNotice"] = confirmationMessage;
+
+                return RedirectToAction(nameof(VerifyResetOtp));
+            }
+
+            var recentOtps = await _context.EmailOTPs
+                .Where(o =>
+                    o.UserId == user.UserId &&
+                    o.Purpose == EmailOtpPurpose.PasswordReset &&
+                    o.CreatedDateTime >= now.AddHours(-1))
+                .OrderByDescending(o => o.CreatedDateTime)
+                .ToListAsync();
+
+            // Enforce the 60-second cooldown.
+            if (recentOtps.Count > 0 &&
+                recentOtps[0].CreatedDateTime > now.AddSeconds(-60))
+            {
+                await transaction.RollbackAsync();
+
+                TempData["ResetNotice"] = confirmationMessage;
+
+                return RedirectToAction(nameof(VerifyResetOtp));
+            }
+
+            // Maximum 6 password-reset OTP requests per hour.
+            if (recentOtps.Count >= 6)
+            {
+                await transaction.RollbackAsync();
+
+                TempData["ResetNotice"] = confirmationMessage;
+
+                return RedirectToAction(nameof(VerifyResetOtp));
+            }
+
+            // Invalidate previous unused password-reset OTPs.
+            var oldOtps = await _context.EmailOTPs
+                .Where(o =>
+                    o.UserId == user.UserId &&
+                    o.Purpose == EmailOtpPurpose.PasswordReset &&
+                    !o.IsVerified)
+                .ToListAsync();
+
+            foreach (var oldOtp in oldOtps)
+            {
+                oldOtp.ExpiryDateTime = now;
+            }
+
+            // Generate a new six-digit OTP.
+            string otpCode = _otpService.GenerateOtp();
+
+            string otpId =
+                await _idGenerator.GenerateIdAsync("OTP");
+
+            var emailOtp = new EmailOTP
+            {
+                OtpId = otpId,
+                UserId = user.UserId,
+                OtpCode = _otpService.HashOtp(
+                    user.UserId, otpCode),
+                Purpose = EmailOtpPurpose.PasswordReset,
+                CreatedDateTime = now,
+                ExpiryDateTime = now.AddMinutes(5),
+                IsVerified = false,
+                FailedAttempts = 0
+            };
+
+            _context.EmailOTPs.Add(emailOtp);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // Send the password-reset OTP.
+            try
+            {
+                string subject = "IPFMMS - Password Reset Code";
+
+                string body =
+                    $"Hello {user.FullName},\n\n" +
+                    "We received a request to reset your IPFMMS password.\n\n" +
+                    $"Your verification code is: {otpCode}\n\n" +
+                    "This code expires in 5 minutes.\n\n" +
+                    "If you did not request this, please ignore this email.\n\n" +
+                    "IPFMMS Team";
+
+                await _emailService.SendEmailAsync(
+                    user.Email, subject, body);
+            }
+            catch (Exception)
+            {
+                
+            }
+
+            TempData["ResetNotice"] = confirmationMessage;
+
+            return RedirectToAction(nameof(VerifyResetOtp));
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> VerifyResetOtp()
+        {
+            var model = new ResetPasswordOtpViewModel
+            {
+                Email = TempData.Peek("ResetEmail")?.ToString()
+                    ?? string.Empty
+            };
+
+            await PopulateResetOtpViewModelAsync(model);
+
+            return View(model);
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [EnableRateLimiting("PasswordRecovery")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> VerifyResetOtp(
+    ResetPasswordOtpViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                await PopulateResetOtpViewModelAsync(model);
+                return View(model);
+            }
+
+            string email = TempData.Peek("ResetEmail")?
+    .ToString()?.Trim().ToLowerInvariant() ?? "";
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            model.Email = email;
+
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u =>
+                    u.Email == email &&
+                    u.AccountStatus == AccountStatus.Active);
+
+            if (user == null)
+            {
+                await transaction.RollbackAsync();
+
+                ModelState.AddModelError(
+                    nameof(model.OtpCode),
+                    "Invalid or expired verification code.");
+
+                await PopulateResetOtpViewModelAsync(model);
+                return View(model);
+            }
+
+            // Lock the most recent unused password-reset OTP.
+            var otpRecords = await _context.EmailOTPs
+                .FromSqlInterpolated(
+                    $@"SELECT * FROM EmailOTPs
+               WHERE UserId = {user.UserId}
+                 AND Purpose = {EmailOtpPurpose.PasswordReset}
+                 AND IsVerified = FALSE
+               ORDER BY CreatedDateTime DESC, OtpId DESC
+               LIMIT 1 FOR UPDATE")
+                .AsTracking()
+                .ToListAsync();
+
+            var otp = otpRecords.FirstOrDefault();
+
+            if (otp == null ||
+                otp.ExpiryDateTime <= DateTime.UtcNow ||
+                otp.FailedAttempts >= 5)
+            {
+                await transaction.RollbackAsync();
+
+                ModelState.AddModelError(
+                    nameof(model.OtpCode),
+                    "Invalid or expired verification code.");
+
+                await PopulateResetOtpViewModelAsync(model);
+                return View(model);
+            }
+
+            bool isCorrect = _otpService.VerifyOtp(
+                user.UserId,
+                model.OtpCode,
+                otp.OtpCode);
+
+            if (!isCorrect)
+            {
+                otp.FailedAttempts++;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                ModelState.AddModelError(
+                    nameof(model.OtpCode),
+                    "Invalid or expired verification code.");
+
+                await PopulateResetOtpViewModelAsync(model);
+                return View(model);
+            }
+
+            // 1. Generate a secure reset token.
+            string resetToken =
+                _passwordResetTokenService.GenerateToken();
+
+            string tokenHash =
+                _passwordResetTokenService.HashToken(resetToken);
+
+            DateTime now = DateTime.UtcNow;
+
+            // 2. Invalidate previous unused reset tokens
+            // for this user.
+            var oldTokens = await _context.PasswordResetTokens
+                .Where(t =>
+                    t.UserId == user.UserId &&
+                    !t.IsUsed)
+                .ToListAsync();
+
+            foreach (var oldToken in oldTokens)
+            {
+                oldToken.IsUsed = true;
+            }
+
+            // 3. Create a new reset authorization.
+            var passwordResetToken = new PasswordResetToken
+            {
+                UserId = user.UserId,
+                TokenHash = tokenHash,
+                CreatedDateTime = now,
+                ExpiryDateTime = now.AddMinutes(10),
+                IsUsed = false
+            };
+
+            _context.PasswordResetTokens.Add(passwordResetToken);
+
+            // 4. Mark the OTP as verified.
+            // These changes are saved in the same transaction.
+            otp.IsVerified = true;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // 5. Store the actual token in a secure browser cookie.
+            // Never store the plaintext token in MySQL.
+            Response.Cookies.Append(
+                "IPFMMS.PasswordReset",
+                resetToken,
+                new CookieOptions
+                {
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Strict,
+                    IsEssential = true,
+                    Path = "/Account",
+                    Expires = DateTimeOffset.UtcNow.AddMinutes(10)
+                });
+
+            // 6. Continue to the Reset Password page.
+            return RedirectToAction(nameof(ResetPassword));
+        }
+
+        [HttpGet]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword()
+        {
+            string? resetToken =
+                Request.Cookies["IPFMMS.PasswordReset"];
+
+            if (string.IsNullOrWhiteSpace(resetToken))
+            {
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            string tokenHash =
+                _passwordResetTokenService.HashToken(resetToken);
+
+            var tokenRecord = await _context.PasswordResetTokens
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t =>
+                    t.TokenHash == tokenHash &&
+                    !t.IsUsed &&
+                    t.ExpiryDateTime > DateTime.UtcNow);
+
+            if (tokenRecord == null)
+            {
+                Response.Cookies.Delete(
+                    "IPFMMS.PasswordReset",
+                    new CookieOptions { Path = "/Account" });
+
+                TempData["ResetNotice"] =
+                    "Your password reset session has expired. " +
+                    "Please request a new verification code.";
+
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            return View(new ResetPasswordViewModel());
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [EnableRateLimiting("PasswordRecovery")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(
+    ResetPasswordViewModel model)
+        {
+            string? resetToken =
+                Request.Cookies["IPFMMS.PasswordReset"];
+
+            if (string.IsNullOrWhiteSpace(resetToken))
+            {
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            string tokenHash =
+                _passwordResetTokenService.HashToken(resetToken);
+
+            // Validate the reset authorization independently
+            // of the form's input.
+            if (!ModelState.IsValid)
+            {
+                bool tokenIsValid =
+                    await _context.PasswordResetTokens
+                        .AsNoTracking()
+                        .AnyAsync(t =>
+                            t.TokenHash == tokenHash &&
+                            !t.IsUsed &&
+                            t.ExpiryDateTime > DateTime.UtcNow);
+
+                if (!tokenIsValid)
+                {
+                    Response.Cookies.Delete(
+                        "IPFMMS.PasswordReset",
+                        new CookieOptions { Path = "/Account" });
+
+                    return RedirectToAction(nameof(ForgotPassword));
+                }
+
+                return View(model);
+            }
+
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            // Lock the token row so simultaneous submissions
+            // cannot consume the same token twice.
+            var tokenRecords = await _context.PasswordResetTokens
+                .FromSqlInterpolated(
+                    $@"SELECT * FROM PasswordResetTokens
+               WHERE TokenHash = {tokenHash}
+               LIMIT 1 FOR UPDATE")
+                .AsTracking()
+                .ToListAsync();
+
+            var tokenRecord = tokenRecords.FirstOrDefault();
+
+            if (tokenRecord == null ||
+                tokenRecord.IsUsed ||
+                tokenRecord.ExpiryDateTime <= DateTime.UtcNow)
+            {
+                await transaction.RollbackAsync();
+
+                Response.Cookies.Delete(
+                    "IPFMMS.PasswordReset",
+                    new CookieOptions { Path = "/Account" });
+
+                TempData["ResetNotice"] =
+                    "Your password reset session is invalid or expired.";
+
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u =>
+                    u.UserId == tokenRecord.UserId &&
+                    u.AccountStatus == AccountStatus.Active);
+
+            if (user == null)
+            {
+                await transaction.RollbackAsync();
+
+                Response.Cookies.Delete(
+                    "IPFMMS.PasswordReset",
+                    new CookieOptions { Path = "/Account" });
+
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            // Prevent resetting to the existing password.
+            var samePasswordResult =
+                _passwordHasher.VerifyHashedPassword(
+                    user,
+                    user.PasswordHash,
+                    model.NewPassword);
+
+            if (samePasswordResult !=
+                PasswordVerificationResult.Failed)
+            {
+                await transaction.RollbackAsync();
+
+                ModelState.AddModelError(
+                    nameof(model.NewPassword),
+                    "New password must be different from your current password.");
+
+                return View(model);
+            }
+
+            // Update the password using ASP.NET Core's
+            // password hashing service.
+            user.PasswordHash = _passwordHasher.HashPassword(
+                user,
+                model.NewPassword);
+
+            // Invalidate previously issued authentication cookies.
+            user.SecurityVersion++;
+
+            // Consume the reset token.
+            tokenRecord.IsUsed = true;
+
+            // Invalidate any other unused password-reset tokens.
+            var otherTokens = await _context.PasswordResetTokens
+                .Where(t =>
+                    t.UserId == user.UserId &&
+                    !t.IsUsed &&
+                    t.TokenId != tokenRecord.TokenId)
+                .ToListAsync();
+
+            foreach (var otherToken in otherTokens)
+            {
+                otherToken.IsUsed = true;
+            }
+
+            // Save password change and token consumption together.
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // Remove the temporary reset authorization.
+            Response.Cookies.Delete(
+                "IPFMMS.PasswordReset",
+                new CookieOptions { Path = "/Account" });
+
+            // Unlike normal Change Password, account recovery
+            // requires the user to sign in again.
+            await HttpContext.SignOutAsync(
+                CookieAuthenticationDefaults.AuthenticationScheme);
+
+            TempData["SuccessMessage"] =
+                "Your password has been reset successfully. " +
+                "Please log in with your new password.";
+
+            return RedirectToAction(nameof(Login));
+        }
+
+        private Task PopulateResetOtpViewModelAsync(
+     ResetPasswordOtpViewModel model)
+        {
+            model.ResendAvailableAtUtc = null;
+            model.ResendCooldownSeconds = 0;
+
+            string? timestampString =
+                TempData.Peek("ResetRequestTime")?.ToString();
+
+            if (!long.TryParse(timestampString, out long timestamp))
+            {
+                return Task.CompletedTask;
+            }
+
+            DateTimeOffset requestTime;
+
+            try
+            {
+                requestTime = DateTimeOffset.FromUnixTimeSeconds(timestamp);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                return Task.CompletedTask;
+            }
+
+            DateTimeOffset resendAvailableAt =
+                requestTime.AddSeconds(60);
+
+            model.ResendAvailableAtUtc =
+                resendAvailableAt.UtcDateTime;
+
+            model.ResendCooldownSeconds = Math.Max(
+                0,
+                (int)Math.Ceiling(
+                    (resendAvailableAt - DateTimeOffset.UtcNow)
+                    .TotalSeconds));
+
+            return Task.CompletedTask;
+        }
+
+        [HttpPost]
+        [AllowAnonymous]
+        [EnableRateLimiting("PasswordRecovery")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResendResetOtp()
+        {
+            string email = TempData.Peek("ResetEmail")?
+                .ToString()?.Trim().ToLowerInvariant() ?? "";
+
+            const string message =
+                "If the account is eligible and the resend limit " +
+                "has not been reached, a verification code will be sent.";
+
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return RedirectToAction(nameof(ForgotPassword));
+            }
+
+            TempData["ResetRequestTime"] = DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString();
+
+            DateTime now = DateTime.UtcNow;
+
+            await using var transaction =
+                await _context.Database.BeginTransactionAsync();
+
+            // Lock the user row to serialize resend requests.
+            var users = await _context.Users
+                .FromSqlInterpolated(
+                    $@"SELECT * FROM Users
+               WHERE Email = {email}
+               FOR UPDATE")
+                .AsTracking()
+                .ToListAsync();
+
+            var user = users.FirstOrDefault();
+
+            // Do not reveal account existence or status.
+            if (user == null ||
+                !AccountStatus.CanLogin(user.AccountStatus))
+            {
+                await transaction.RollbackAsync();
+
+                TempData["ResetNotice"] = message;
+
+                return RedirectToAction(nameof(VerifyResetOtp));
+            }
+
+            // Find all password-reset OTPs issued in the last hour.
+            var recentOtps = await _context.EmailOTPs
+                .Where(o =>
+                    o.UserId == user.UserId &&
+                    o.Purpose == EmailOtpPurpose.PasswordReset &&
+                    o.CreatedDateTime >= now.AddHours(-1))
+                .OrderByDescending(o => o.CreatedDateTime)
+                .ToListAsync();
+
+            // Enforce 60-second cooldown.
+            if (recentOtps.Count > 0 &&
+                recentOtps[0].CreatedDateTime > now.AddSeconds(-60))
+            {
+                await transaction.RollbackAsync();
+
+                TempData["ResetNotice"] = message;
+
+                return RedirectToAction(nameof(VerifyResetOtp));
+            }
+
+            // Maximum six OTP requests per hour.
+            if (recentOtps.Count >= 6)
+            {
+                await transaction.RollbackAsync();
+
+                TempData["ResetNotice"] = message;
+
+                return RedirectToAction(nameof(VerifyResetOtp));
+            }
+
+            // Invalidate previous unused password-reset OTPs.
+            var oldOtps = await _context.EmailOTPs
+                .Where(o =>
+                    o.UserId == user.UserId &&
+                    o.Purpose == EmailOtpPurpose.PasswordReset &&
+                    !o.IsVerified)
+                .ToListAsync();
+
+            foreach (var oldOtp in oldOtps)
+            {
+                oldOtp.ExpiryDateTime = now;
+            }
+
+            // Generate a new secure six-digit OTP.
+            string otpCode = _otpService.GenerateOtp();
+
+            string otpId = await _idGenerator.GenerateIdAsync("OTP");
+
+            var newOtp = new EmailOTP
+            {
+                OtpId = otpId,
+                UserId = user.UserId,
+                OtpCode = _otpService.HashOtp(
+                    user.UserId, otpCode),
+                Purpose = EmailOtpPurpose.PasswordReset,
+                CreatedDateTime = now,
+                ExpiryDateTime = now.AddMinutes(5),
+                IsVerified = false,
+                FailedAttempts = 0
+            };
+
+            _context.EmailOTPs.Add(newOtp);
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            try
+            {
+                await _emailService.SendEmailAsync(
+                    user.Email,
+                    "IPFMMS - New Password Reset Code",
+                    $"Hello {user.FullName},\n\n" +
+                    $"Your new password reset code is: {otpCode}\n\n" +
+                    "This code expires in 5 minutes.\n\n" +
+                    "If you did not request this, please ignore this email.\n\n" +
+                    "IPFMMS Team");
+            }
+            catch (Exception)
+            {
+                // Don't reveal email delivery errors or account details.
+            }
+
+            TempData["ResetNotice"] = message;
+
+            return RedirectToAction(nameof(VerifyResetOtp));
         }
     }
 }

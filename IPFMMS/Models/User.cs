@@ -33,5 +33,7 @@ namespace IPFMMS.Models
         [Required]
         [StringLength(20)]
         public string AccountStatus { get; set; } = IPFMMS.Models.AccountStatus.Pending;
+
+        public int SecurityVersion { get; set; } = 1;
     }
 }

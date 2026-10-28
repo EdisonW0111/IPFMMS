@@ -21,28 +21,52 @@ namespace IPFMMS.Services
         public override async Task ValidatePrincipal(
             CookieValidatePrincipalContext context)
         {
-            string? userId = context.Principal?
+            var userId = context.Principal?
                 .FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (string.IsNullOrWhiteSpace(userId))
+            var cookieVersion = context.Principal?
+                .FindFirst("SecurityVersion")?.Value;
+
+            // Reject cookies without valid identity/version data.
+            if (string.IsNullOrWhiteSpace(userId) ||
+                !int.TryParse(cookieVersion, out int version))
             {
-                await RejectSessionAsync(context);
+                await RejectSession(context);
                 return;
             }
 
+            // Retrieve current account information from MySQL.
             var user = await _context.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.UserId == userId);
 
+            // Reject deleted, disabled or missing accounts.
             if (user == null ||
                 !AccountStatus.CanLogin(user.AccountStatus))
             {
-                await RejectSessionAsync(context);
+                await RejectSession(context);
+                return;
+            }
+
+            // Reject sessions created before security version changed.
+            if (version != user.SecurityVersion)
+            {
+                await RejectSession(context);
+                return;
+            }
+
+            // Ensure cookie role still matches the database role.
+            var cookieRole = context.Principal?
+                .FindFirstValue(ClaimTypes.Role);
+
+            if (cookieRole != user.Role)
+            {
+                await RejectSession(context);
                 return;
             }
         }
 
-        private static async Task RejectSessionAsync(
+        private static async Task RejectSession(
             CookieValidatePrincipalContext context)
         {
             context.RejectPrincipal();
