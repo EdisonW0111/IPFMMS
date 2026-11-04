@@ -1,0 +1,159 @@
+﻿@model IPFMMS.ViewModels.EditBudgetViewModel
+
+@{
+    ViewData["Title"] = "Edit Budget";
+    Layout = "_DashboardLayout";
+}
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-7">
+            <div class="mb-4">
+                <h2 class="fw-bold mb-1">Edit Budget</h2>
+                <p class="text-muted mb-0">
+                    Update this monthly budget and its category repeat settings.
+                </p>
+            </div>
+
+            @if (TempData["SuccessMessage"] is string successMessage)
+            {
+                <div class="alert alert-success" role="status">@successMessage</div>
+            }
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-md-5">
+                    <form asp-controller="Budget" asp-action="Edit" method="post" id="editBudgetForm">
+                        @Html.AntiForgeryToken()
+                        <input asp-for="BudgetId" type="hidden" />
+
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+                        <div class="mb-4">
+                            <div class="form-label fw-semibold">Expense category</div>
+                            <p>@Model.CategoryName</p>
+                            <div class="form-label fw-semibold">Budget month</div>
+                            <p>@Model.BudgetMonth.ToString("MMMM yyyy")</p>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="BudgetType" class="form-label fw-semibold"></label>
+                            <select asp-for="BudgetType"
+                                    class="form-select" required aria-describedby="typeError">
+                                <option value="">-- Select Budget Type --</option>
+                                <option value="FixedAmount">Fixed Amount (RM)</option>
+                                <option value="Percentage">Percentage of Monthly Income (%)</option>
+                            </select>
+                            <span asp-validation-for="BudgetType" id="typeError" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4" id="budgetAmountGroup">
+                            <label asp-for="BudgetAmount" class="form-label fw-semibold"></label>
+                            <div class="input-group">
+                                <span class="input-group-text">RM</span>
+                                <input asp-for="BudgetAmount" type="number" class="form-control"
+                                       min="0.01" max="9999999999.99" step="0.01"
+                                       aria-describedby="amountHelp amountError" />
+                            </div>
+                            <span asp-validation-for="BudgetAmount" id="amountError" class="text-danger small"></span>
+                            <div id="amountHelp" class="form-text">Enter a spending limit greater than RM0, with up to two decimal places.</div>
+                        </div>
+
+                        <div class="mb-4" id="budgetPercentageGroup">
+                            <label asp-for="BudgetPercentage" class="form-label fw-semibold"></label>
+                            <div class="input-group">
+                                <input asp-for="BudgetPercentage" type="number" class="form-control"
+                                       min="1" max="100" step="0.01"
+                                       aria-describedby="percentageHelp percentageError" />
+                                <span class="input-group-text">%</span>
+                            </div>
+                            <span asp-validation-for="BudgetPercentage" id="percentageError" class="text-danger small"></span>
+                            <div id="percentageHelp" class="form-text">
+                                Use 1% to 100% of your income for the selected month.
+                                Total percentage allocation across categories cannot exceed 100%.
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Notes" class="form-label fw-semibold"></label>
+                            <textarea asp-for="Notes" class="form-control" rows="4" maxlength="500"
+                                      aria-describedby="notesHelp notesError"
+                                      placeholder="Enter optional notes..."></textarea>
+                            <span asp-validation-for="Notes" id="notesError" class="text-danger small"></span>
+                            <div id="notesHelp" class="form-text">Maximum 500 characters.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input asp-for="RepeatMonthly" class="form-check-input"
+                                       aria-describedby="repeatHelp repeatError" />
+                                <label asp-for="RepeatMonthly" class="form-check-label fw-semibold"></label>
+                            </div>
+                            <div id="repeatHelp" class="form-text">
+                                Checked: use these edited settings for new budgets from the following month.
+                                Unchecked: stop category repetition. Other saved monthly budgets stay unchanged.
+                            </div>
+                            <span asp-validation-for="RepeatMonthly" id="repeatError" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4" id="repeatUntilGroup">
+                            <label asp-for="RepeatUntil" class="form-label fw-semibold"></label>
+                            <input asp-for="RepeatUntil" type="month" min="1000-01" max="9998-12"
+                                   class="form-control" aria-describedby="repeatUntilHelp repeatUntilError" />
+                            <span asp-validation-for="RepeatUntil" id="repeatUntilError" class="text-danger small"></span>
+                            <div id="repeatUntilHelp" class="form-text">
+                                Include this month, then stop creating new budgets. Leave blank to repeat until turned off.
+                                Existing monthly budgets remain unchanged.
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap justify-content-end gap-2">
+                            <a asp-controller="Budget" asp-action="Index" asp-route-month="@Model.BudgetMonth.ToString("yyyy-MM")" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn text-white px-4"
+                                    style="background-color: #16899a;" >
+                                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const budgetType = document.getElementById('BudgetType');
+            const amount = document.getElementById('BudgetAmount');
+            const percentage = document.getElementById('BudgetPercentage');
+
+            function updateBudgetFields() {
+                const isFixed = budgetType.value === 'FixedAmount';
+                const isPercentage = budgetType.value === 'Percentage';
+
+                document.getElementById('budgetAmountGroup').hidden = !isFixed;
+                document.getElementById('budgetPercentageGroup').hidden = !isPercentage;
+                amount.disabled = !isFixed;
+                amount.required = isFixed;
+                percentage.disabled = !isPercentage;
+                percentage.required = isPercentage;
+            }
+
+            const repeat = document.getElementById('RepeatMonthly');
+            const repeatUntil = document.getElementById('RepeatUntil');
+            function updateRepeatFields() {
+                document.getElementById('repeatUntilGroup').hidden = !repeat.checked;
+                repeatUntil.disabled = !repeat.checked;
+                repeatUntil.min = '@Model.BudgetMonth.ToString("yyyy-MM")';
+            }
+            repeat.addEventListener('change', updateRepeatFields);
+            updateRepeatFields();
+
+            budgetType.addEventListener('change', updateBudgetFields);
+            updateBudgetFields();
+        })();
+    </script>
+}

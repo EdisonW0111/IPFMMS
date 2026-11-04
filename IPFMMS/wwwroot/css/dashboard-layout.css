@@ -497,3 +497,77 @@ body {
             display: none;
         }
 }
+
+/* Budget and Savings sidebar navigation */
+.sidebar-group-toggle {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sidebar-group-toggle .nav-label {
+    flex: 1;
+    text-align: left;
+}
+
+.sidebar-group-toggle .sidebar-menu-chevron {
+    margin-left: auto;
+    min-width: 12px;
+    font-size: 12px;
+    transition: transform 0.2s;
+}
+
+.sidebar-group-toggle[aria-expanded="true"] .sidebar-menu-chevron {
+    transform: rotate(180deg);
+}
+
+.sidebar-submenu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin: 6px 0 6px 24px;
+    padding-left: 12px;
+    border-left: 1px solid rgba(195, 214, 223, 0.25);
+}
+
+.sidebar-submenu[hidden] {
+    display: none;
+}
+
+.sidebar-submenu .sidebar-link {
+    padding: 10px 12px;
+    font-size: 13px;
+    gap: 10px;
+}
+
+.sidebar-submenu .sidebar-link i {
+    font-size: 16px;
+}
+
+.sidebar-group-toggle:focus-visible,
+.sidebar-submenu .sidebar-link:focus-visible {
+    outline: 2px solid #8ad5e4;
+    outline-offset: 2px;
+}
+
+@media (min-width: 769px) {
+    .dashboard-wrapper.sidebar-collapsed .sidebar-submenu,
+    .dashboard-wrapper.sidebar-collapsed .sidebar-menu-chevron {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Desktop's stored collapse preference must not hide mobile labels. */
+    .dashboard-wrapper.sidebar-collapsed .nav-label,
+    .dashboard-wrapper.sidebar-collapsed .brand-text {
+        display: inline;
+    }
+
+    .dashboard-wrapper.sidebar-collapsed .sidebar-link,
+    .dashboard-wrapper.sidebar-collapsed .brand-link {
+        justify-content: flex-start;
+    }
+}

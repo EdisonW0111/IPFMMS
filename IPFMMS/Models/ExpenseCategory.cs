@@ -17,6 +17,9 @@ namespace IPFMMS.Models
 
         public bool IsActive { get; set; } = true;
 
+        [Range(0, int.MaxValue)]
+        public int DisplayOrder { get; set; } = 1000;
+
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
         // One expense category can be used by many expense records.

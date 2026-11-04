@@ -1,0 +1,31 @@
+@model IPFMMS.Models.SavingsGoal
+@{
+    ViewData["Title"] = "Delete Savings Goal";
+    Layout = "_DashboardLayout";
+    bool hasContributions = Model.SavingsContributions.Count > 0 || ViewData["HasAutomaticAttempts"] is true;
+}
+<div class="container-fluid py-4">
+    <h2 class="fw-bold mb-3">Delete Savings Goal</h2>
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+            <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+            <h3 class="h5 text-break">@Model.GoalName</h3>
+            <p>Target: <strong>RM @Model.TargetAmount.ToString("N2")</strong> by @Model.TargetDate.ToString("dd MMM yyyy")</p>
+            @if (hasContributions)
+            {
+                <p class="text-muted">This goal has contribution or automatic saving history and cannot be deleted. Its savings and contribution history will be preserved.</p>
+                <a asp-action="Contributions" asp-route-id="@Model.SavingsGoalId" class="btn btn-outline-secondary">Contribution History</a>
+                <a asp-action="Index" class="btn btn-outline-secondary">Back to Savings Goals</a>
+            }
+            else
+            {
+                <p>This goal has no recorded contributions. Deleting it is permanent.</p>
+                <form asp-action="Delete" method="post">
+                    <input type="hidden" name="id" value="@Model.SavingsGoalId" />
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-danger">Delete Goal</button>
+                </form>
+            }
+        </div>
+    </div>
+</div>

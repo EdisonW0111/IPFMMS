@@ -73,6 +73,9 @@ namespace IPFMMS.Controllers
                     "Please select a valid income category.");
             }
 
+            if (!IncomePaymentMethods.IsValid(model.PaymentMethod))
+                ModelState.AddModelError(nameof(model.PaymentMethod), "Please select a valid payment method.");
+
             if (!ModelState.IsValid)
             {
                 await LoadCategoriesAsync(model);
@@ -91,6 +94,8 @@ namespace IPFMMS.Controllers
                 Amount = model.Amount!.Value,
                 IncomeDate = model.IncomeDate!.Value.Date,
                 Description = model.Description?.Trim(),
+                PaymentMethod = model.PaymentMethod,
+                Reference = string.IsNullOrWhiteSpace(model.Reference) ? null : model.Reference.Trim(),
                 CreatedDate = DateTime.UtcNow
             };
 
@@ -111,7 +116,8 @@ namespace IPFMMS.Controllers
                 await _context.IncomeCategories
                     .AsNoTracking()
                     .Where(c => c.IsActive)
-                    .OrderBy(c => c.CategoryName)
+                    .OrderBy(c => c.DisplayOrder)
+                    .ThenBy(c => c.CategoryName)
                     .Select(c => new SelectListItem
                     {
                         Value = c.IncomeCategoryId,
@@ -151,7 +157,9 @@ namespace IPFMMS.Controllers
                 IncomeCategoryId = income.IncomeCategoryId,
                 Amount = income.Amount,
                 IncomeDate = income.IncomeDate,
-                Description = income.Description
+                Description = income.Description,
+                PaymentMethod = income.PaymentMethod,
+                Reference = income.Reference
             };
 
             // Load category options, including an inactive category
@@ -160,7 +168,8 @@ namespace IPFMMS.Controllers
                 .AsNoTracking()
                 .Where(c => c.IsActive ||
                             c.IncomeCategoryId == income.IncomeCategoryId)
-                .OrderBy(c => c.CategoryName)
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.CategoryName)
                 .Select(c => new SelectListItem
                 {
                     Value = c.IncomeCategoryId,
@@ -218,6 +227,9 @@ namespace IPFMMS.Controllers
                     "Please select a valid income category.");
             }
 
+            if (!IncomePaymentMethods.CanEdit(model.PaymentMethod, income.PaymentMethod))
+                ModelState.AddModelError(nameof(model.PaymentMethod), "Please select a valid payment method.");
+
             // 5. Validate the model before saving.
             if (!ModelState.IsValid)
             {
@@ -225,7 +237,8 @@ namespace IPFMMS.Controllers
                     .AsNoTracking()
                     .Where(c => c.IsActive ||
                                 c.IncomeCategoryId == income.IncomeCategoryId)
-                    .OrderBy(c => c.CategoryName)
+                    .OrderBy(c => c.DisplayOrder)
+                    .ThenBy(c => c.CategoryName)
                     .Select(c => new SelectListItem
                     {
                         Value = c.IncomeCategoryId,
@@ -241,6 +254,8 @@ namespace IPFMMS.Controllers
             income.Amount = model.Amount!.Value;
             income.IncomeDate = model.IncomeDate!.Value.Date;
             income.Description = model.Description?.Trim();
+            income.PaymentMethod = string.IsNullOrWhiteSpace(model.PaymentMethod) ? null : model.PaymentMethod;
+            income.Reference = string.IsNullOrWhiteSpace(model.Reference) ? null : model.Reference.Trim();
 
             // Do not change IncomeId, UserId or CreatedDate.
 

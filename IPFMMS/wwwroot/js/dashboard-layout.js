@@ -64,6 +64,42 @@
         updateToggle();
     });
 
+    // Budget and Savings share a collapsible navigation group.
+    const budgetSavingsToggle = document.getElementById("budgetSavingsToggle");
+    const budgetSavingsSubmenu = document.getElementById("budgetSavingsSubmenu");
+
+    function setBudgetSavingsOpen(open) {
+        budgetSavingsSubmenu.hidden = !open;
+        budgetSavingsToggle.setAttribute("aria-expanded", String(open));
+    }
+
+    if (budgetSavingsToggle && budgetSavingsSubmenu) {
+        budgetSavingsToggle.addEventListener("click", function () {
+            const collapsedDesktop = window.matchMedia("(min-width: 769px)").matches &&
+                wrapper.classList.contains("sidebar-collapsed");
+            if (collapsedDesktop) {
+                wrapper.classList.remove("sidebar-collapsed");
+                try {
+                    localStorage.setItem(storageKey, "false");
+                } catch (error) {
+                    // Navigation still works when storage is unavailable.
+                }
+                updateToggle();
+                setBudgetSavingsOpen(true);
+            } else {
+                setBudgetSavingsOpen(budgetSavingsSubmenu.hidden);
+            }
+        });
+
+        toggle.addEventListener("click", function () {
+            if (wrapper.classList.contains("sidebar-collapsed")) {
+                setBudgetSavingsOpen(false);
+            } else if (budgetSavingsToggle.dataset.currentSection === "true") {
+                setBudgetSavingsOpen(true);
+            }
+        });
+    }
+
     function closeMobileSidebar() {
         wrapper.classList.remove("mobile-sidebar-open");
         mobileButton.setAttribute("aria-expanded", "false");

@@ -1,0 +1,52 @@
+﻿@model IPFMMS.ViewModels.BudgetIndexViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Budgets";
+    Layout = "_DashboardLayout";
+    string selectedMonth = Model.BudgetMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Monthly Budgets</h2>
+            <p class="text-muted mb-0">Track your monthly spending by expense category.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-action="Create" class="btn text-white" style="background-color: #16899a;">
+                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i> Create Budget
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success" role="status">@successMessage</div>
+    }
+
+    <form id="budgetFilterForm" data-index-url="@Url.Action("Index", "Budget")" asp-action="Rollover" method="post" class="d-flex flex-wrap align-items-end gap-2 mb-4">
+        <div>
+            <label for="month" class="form-label fw-semibold">Budget month</label>
+            <input type="month" id="month" name="month" value="@selectedMonth"
+                   min="1000-01" max="9998-12" required class="form-control" aria-describedby="rolloverLimitHelp" />
+        </div>
+        <noscript><button type="submit" class="btn btn-outline-secondary">View month</button></noscript>
+    </form>
+    <p id="rolloverLimitHelp" class="form-text mb-4">
+        Automatic repetition is available up to 12 months ahead, through @Model.RolloverLimitMonth.ToString("MMMM yyyy").
+        Later months show previously saved budgets only.
+    </p>
+    <p id="budgetLoading" class="text-muted d-none" role="status">Loading budgets...</p>
+    <div id="budgetError" class="alert alert-danger d-none" role="alert">
+        Unable to load budgets. Your displayed results have not changed. Please try again or refresh the page.
+        <button type="button" id="retryBudgetFilter" class="btn btn-sm btn-outline-danger ms-2">Try again</button>
+    </div>
+    <div id="budgetResults" aria-busy="false">
+        <partial name="_BudgetDashboard" model="Model" />
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/budget-filter.js" asp-append-version="true"></script>
+}

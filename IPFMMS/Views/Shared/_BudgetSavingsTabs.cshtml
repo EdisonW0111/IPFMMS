@@ -1,0 +1,15 @@
+@{
+    bool savingsSelected = ViewContext.RouteData.Values["controller"]?.ToString() == "Savings";
+}
+<nav aria-label="Budget and Savings" class="mb-4">
+    <ul class="nav nav-pills gap-2">
+        <li class="nav-item">
+            <a asp-controller="Budget" asp-action="Index" class="nav-link @(!savingsSelected ? "active" : "")"
+               aria-current="@(!savingsSelected ? "page" : null)">Budgets</a>
+        </li>
+        <li class="nav-item">
+            <a asp-controller="Savings" asp-action="Index" class="nav-link @(savingsSelected ? "active" : "")"
+               aria-current="@(savingsSelected ? "page" : null)">Savings Goals</a>
+        </li>
+    </ul>
+</nav>

@@ -9,6 +9,8 @@
         currentController == "Dashboard" &&
         currentAction == "Finance";
 
+    bool isBudgets = currentController == "Budget" || currentController == "Savings";
+
     bool isTransactions =
     currentController == "Transaction" ||
     currentController == "Income" ||
@@ -79,11 +81,32 @@
                         <span class="nav-label">Transactions</span>
                     </a>
 
-                    <a href="#" class="sidebar-link"
-                        title="Budgets & Savings">
-                        <i class="bi bi-wallet2"></i>
-                        <span class="nav-label">Budgets &amp; Savings</span>
-                    </a>
+                    <div class="sidebar-nav-group">
+                        <button type="button" id="budgetSavingsToggle"
+                                class="sidebar-link sidebar-group-toggle @(isBudgets ? "active" : "")"
+                                title="Budgets & Savings" aria-label="Budgets and Savings"
+                                aria-controls="budgetSavingsSubmenu"
+                                aria-expanded="@(isBudgets ? "true" : "false")"
+                                data-current-section="@(isBudgets ? "true" : "false")">
+                            <i class="bi bi-wallet2" aria-hidden="true"></i>
+                            <span class="nav-label">Budgets &amp; Savings</span>
+                            <i class="bi bi-chevron-down sidebar-menu-chevron" aria-hidden="true"></i>
+                        </button>
+                        <div id="budgetSavingsSubmenu" class="sidebar-submenu" hidden="@(!isBudgets)">
+                            <a asp-controller="Budget" asp-action="Index"
+                               class="sidebar-link @(currentController == "Budget" ? "active" : "")"
+                               aria-current="@(currentController == "Budget" ? "page" : null)">
+                                <i class="bi bi-wallet2" aria-hidden="true"></i>
+                                <span class="nav-label">Budgets</span>
+                            </a>
+                            <a asp-controller="Savings" asp-action="Index"
+                               class="sidebar-link @(currentController == "Savings" ? "active" : "")"
+                               aria-current="@(currentController == "Savings" ? "page" : null)">
+                                <i class="bi bi-piggy-bank" aria-hidden="true"></i>
+                                <span class="nav-label">Savings Goals</span>
+                            </a>
+                        </div>
+                    </div>
 
                     <a href="#" class="sidebar-link"
                         title="Analytics & Prediction">

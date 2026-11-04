@@ -1,0 +1,36 @@
+@model IPFMMS.ViewModels.EditSavingsContributionViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Edit Contribution";
+    Layout = "_DashboardLayout";
+    string today = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).ToString("yyyy-MM-dd");
+}
+<div class="container-fluid py-4">
+    <h2 class="fw-bold">Edit Contribution</h2>
+    <p class="text-muted text-break">@Model.GoalName</p>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4">
+        <p>Other contributions: RM @Model.OtherContributions.ToString("N2"). Maximum for this entry: RM @Model.MaximumAmount.ToString("N2").</p>
+        <form asp-action="EditContribution" method="post">
+            <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+            <input asp-for="ContributionId" type="hidden" />
+            <div class="mb-3">
+                <label asp-for="Amount" class="form-label"></label>
+                <input asp-for="Amount" class="form-control" type="number" min="0.01" max="@Model.MaximumAmount.ToString(CultureInfo.InvariantCulture)" step="0.01" />
+                <span asp-validation-for="Amount" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="ContributionDate" class="form-label"></label>
+                <input asp-for="ContributionDate" class="form-control" type="date" min="1000-01-01" max="@today" />
+                <span asp-validation-for="ContributionDate" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label"></label>
+                <textarea asp-for="Description" class="form-control" maxlength="255" rows="3"></textarea>
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+            <a asp-action="Contributions" asp-route-id="@Model.SavingsGoalId" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+    </div></div>
+</div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

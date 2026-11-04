@@ -1,4 +1,5 @@
-﻿using System;
+﻿using IPFMMS.Models;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -27,6 +28,20 @@ namespace IPFMMS.ViewModels
 
         [StringLength(255)]
         public string? Description { get; set; }
+
+        [StringLength(30)]
+        [Display(Name = "Payment Method")]
+        public string? PaymentMethod { get; set; }
+
+        [StringLength(100, ErrorMessage = "Reference cannot exceed 100 characters.")]
+        [Display(Name = "Reference (Optional)")]
+        public string? Reference { get; set; }
+
+        public List<SelectListItem> PaymentMethods { get; set; } =
+            IncomePaymentMethods.Values.Select(value => new SelectListItem
+            {
+                Value = value, Text = value
+            }).ToList();
 
         public List<SelectListItem> IncomeCategories { get; set; }
             = new List<SelectListItem>();

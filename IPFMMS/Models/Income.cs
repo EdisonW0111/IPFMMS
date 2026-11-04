@@ -27,6 +27,13 @@ namespace IPFMMS.Models
         [DataType(DataType.Date)]
         public DateTime IncomeDate { get; set; }
 
+        // Nullable so existing transactions retain unknown historical details.
+        [StringLength(30)]
+        public string? PaymentMethod { get; set; }
+
+        [StringLength(100)]
+        public string? Reference { get; set; }
+
         [StringLength(255)]
         public string? Description { get; set; }
 

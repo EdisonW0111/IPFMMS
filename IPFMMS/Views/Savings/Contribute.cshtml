@@ -1,0 +1,67 @@
+﻿@model IPFMMS.ViewModels.RecordSavingsContributionViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Record Contribution";
+    Layout = "_DashboardLayout";
+    string today = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center"><div class="col-12 col-lg-8 col-xl-7">
+        <div class="mb-4">
+            <h2 class="fw-bold mb-1">Record Contribution</h2>
+            <p class="text-muted mb-0 text-break">Record money you have set aside for @Model.GoalName.</p>
+        </div>
+        <div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4 p-md-5">
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-sm-4"><div class="text-muted small">Target</div><strong>RM @Model.TargetAmount.ToString("N2")</strong></div>
+                <div class="col-12 col-sm-4"><div class="text-muted small">Saved</div><strong class="text-success">RM @Model.TotalSaved.ToString("N2")</strong></div>
+                <div class="col-12 col-sm-4"><div class="text-muted small">Remaining</div><strong>RM @Model.Remaining.ToString("N2")</strong></div>
+            </div>
+            <p class="text-muted small mb-4">
+                This contribution sets money aside for your goal and reduces your available-to-spend balance.
+                <a asp-controller="Transaction" asp-action="Index">View your balance</a>.
+            </p>
+            @if (!Model.CanContribute)
+            {
+                <div class="alert alert-info" role="status">This goal is completed or inactive. Contributions are closed.</div>
+            }
+            <form asp-controller="Savings" asp-action="Contribute" method="post">
+                @Html.AntiForgeryToken()
+                <input asp-for="SavingsGoalId" type="hidden" />
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+                <div class="mb-4">
+                    <label asp-for="Amount" class="form-label fw-semibold"></label>
+                    <div class="input-group">
+                        <span class="input-group-text">RM</span>
+                        <input asp-for="Amount" type="number" min="0.01" max="@Model.Remaining.ToString("0.00", CultureInfo.InvariantCulture)"
+                               step="0.01" class="form-control" required placeholder="0.00" aria-describedby="amountHelp amountError" />
+                    </div>
+                    <span asp-validation-for="Amount" id="amountError" class="text-danger small"></span>
+                    <div id="amountHelp" class="form-text">Enter up to the remaining amount. Contributions use at most two decimal places.</div>
+                </div>
+                <div class="mb-4">
+                    <label asp-for="ContributionDate" class="form-label fw-semibold"></label>
+                    <input asp-for="ContributionDate" type="date" asp-format="{0:yyyy-MM-dd}" min="1000-01-01" max="@today"
+                           class="form-control" required aria-describedby="dateError" />
+                    <span asp-validation-for="ContributionDate" id="dateError" class="text-danger small"></span>
+                </div>
+                <div class="mb-4">
+                    <label asp-for="Description" class="form-label fw-semibold"></label>
+                    <textarea asp-for="Description" rows="3" maxlength="255" class="form-control"
+                              aria-describedby="descriptionError" placeholder="e.g. Part of this month's allowance"></textarea>
+                    <span asp-validation-for="Description" id="descriptionError" class="text-danger small"></span>
+                </div>
+                <div class="d-flex flex-wrap justify-content-end gap-2">
+                    <a asp-action="Index" class="btn btn-outline-secondary px-4">Cancel</a>
+                    <button type="submit" class="btn text-white px-4" style="background-color: #16899a;" disabled="@(!Model.CanContribute)">
+                        Record Contribution
+                    </button>
+                </div>
+            </form>
+        </div></div>
+    </div></div>
+</div>
+@section Scripts {
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+}

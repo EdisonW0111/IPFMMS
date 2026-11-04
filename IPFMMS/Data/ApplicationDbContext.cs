@@ -19,6 +19,11 @@ namespace IPFMMS.Data
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<IncomeCategory> IncomeCategories { get; set; }
         public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
+        public DbSet<Budget> Budgets { get; set; }
+        public DbSet<BudgetSchedule> BudgetSchedules { get; set; }
+        public DbSet<SavingsAutomaticAttempt> SavingsAutomaticAttempts { get; set; }
+        public DbSet<SavingsGoal> SavingsGoals { get; set; }
+        public DbSet<SavingsContribution> SavingsContributions { get; set; }
 
         protected override void OnModelCreating(
             ModelBuilder modelBuilder)
@@ -99,6 +104,9 @@ namespace IPFMMS.Data
 
                 entity.HasIndex(c => c.CategoryName)
                     .IsUnique();
+
+                entity.Property(c => c.DisplayOrder)
+                    .HasDefaultValue(CategoryDefaults.UnassignedOrder);
             });
 
             modelBuilder.Entity<ExpenseCategory>(entity =>
@@ -112,6 +120,9 @@ namespace IPFMMS.Data
 
                 entity.HasIndex(c => c.CategoryName)
                     .IsUnique();
+
+                entity.Property(c => c.DisplayOrder)
+                    .HasDefaultValue(CategoryDefaults.UnassignedOrder);
             });
 
             modelBuilder.Entity<Income>(entity =>
@@ -162,6 +173,119 @@ namespace IPFMMS.Data
                     .WithMany(c => c.Expenses)
                     .HasForeignKey(e => e.ExpenseCategoryId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Budget>(entity =>
+            {
+                entity.HasKey(b => b.BudgetId);
+
+                // One budget per user, category and month.
+                entity.HasIndex(b => new
+                {
+                    b.UserId,
+                    b.ExpenseCategoryId,
+                    b.BudgetMonth
+                }).IsUnique();
+
+                entity.HasOne(b => b.User)
+                    .WithMany()
+                    .HasForeignKey(b => b.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(b => b.ExpenseCategory)
+                    .WithMany()
+                    .HasForeignKey(b => b.ExpenseCategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(b => b.BudgetAmount)
+                    .HasPrecision(12, 2);
+
+                entity.Property(b => b.BudgetPercentage)
+                    .HasPrecision(5, 2);
+            });
+
+            modelBuilder.Entity<BudgetSchedule>(entity =>
+            {
+                entity.ToTable("BudgetSchedules");
+
+                entity.HasKey(s => s.BudgetScheduleId);
+                entity.Property(s => s.BudgetScheduleId)
+                    .ValueGeneratedNever();
+
+                // Reuse the same schedule when repetition is re-enabled.
+                entity.HasIndex(s => new { s.UserId, s.ExpenseCategoryId })
+                    .IsUnique();
+
+                entity.HasOne(s => s.User)
+                    .WithMany()
+                    .HasForeignKey(s => s.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(s => s.ExpenseCategory)
+                    .WithMany()
+                    .HasForeignKey(s => s.ExpenseCategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(s => s.NextBudgetMonth)
+                    .HasColumnType("date");
+
+                entity.Property(s => s.EndMonth)
+                    .HasColumnType("date");
+
+                entity.Property(s => s.BudgetAmount)
+                    .HasPrecision(12, 2);
+
+                entity.Property(s => s.BudgetPercentage)
+                    .HasPrecision(5, 2);
+            });
+
+            modelBuilder.Entity<SavingsAutomaticAttempt>(entity =>
+            {
+                entity.ToTable("SavingsAutomaticAttempts");
+                entity.HasIndex(a => new { a.SavingsGoalId, a.DueDate }).IsUnique();
+                entity.HasOne(a => a.SavingsGoal).WithMany().HasForeignKey(a => a.SavingsGoalId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<SavingsGoal>(entity =>
+            {
+                entity.ToTable("SavingsGoals");
+
+                entity.HasKey(g => g.SavingsGoalId);
+                entity.Property(g => g.SavingsGoalId)
+                    .ValueGeneratedNever();
+
+                entity.HasOne(g => g.User)
+                    .WithMany()
+                    .HasForeignKey(g => g.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(g => g.TargetAmount)
+                    .HasPrecision(12, 2);
+
+                entity.Property(g => g.MonthlyTargetAmount)
+                    .HasPrecision(12, 2);
+
+                entity.Property(g => g.TargetDate)
+                    .HasColumnType("date");
+            });
+
+            modelBuilder.Entity<SavingsContribution>(entity =>
+            {
+                entity.ToTable("SavingsContributions");
+
+                entity.HasKey(c => c.ContributionId);
+                entity.Property(c => c.ContributionId)
+                    .ValueGeneratedNever();
+
+                entity.HasOne(c => c.SavingsGoal)
+                    .WithMany(g => g.SavingsContributions)
+                    .HasForeignKey(c => c.SavingsGoalId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.Property(c => c.Amount)
+                    .HasPrecision(12, 2);
+
+                entity.Property(c => c.ContributionDate)
+                    .HasColumnType("date");
             });
 
         }

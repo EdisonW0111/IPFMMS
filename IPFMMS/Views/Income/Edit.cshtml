@@ -114,6 +114,24 @@
 
                         </div>
 
+                        <div class="mb-4">
+                            <label asp-for="PaymentMethod" class="form-label fw-semibold"></label>
+                            <select asp-for="PaymentMethod" asp-items="Model.PaymentMethods" class="form-select"
+                                    aria-describedby="paymentMethodHelp paymentMethodError">
+                                <option value="">-- Not recorded --</option>
+                            </select>
+                            <span asp-validation-for="PaymentMethod" id="paymentMethodError" class="text-danger small"></span>
+                            <div id="paymentMethodHelp" class="form-text">Older income entries may have no recorded method. Keep it blank only if the method was never recorded.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="Reference" class="form-label fw-semibold"></label>
+                            <input asp-for="Reference" class="form-control" maxlength="100"
+                                   placeholder="e.g. bank transfer reference" aria-describedby="referenceHelp referenceError" />
+                            <span asp-validation-for="Reference" id="referenceError" class="text-danger small"></span>
+                            <div id="referenceHelp" class="form-text">Optional transaction reference, up to 100 characters.</div>
+                        </div>
+
                         <!-- Description -->
                         <div class="mb-4">
 
@@ -199,5 +217,6 @@
 </div>
 
 @section Scripts {
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <partial name="_ValidationScriptsPartial" />
 }

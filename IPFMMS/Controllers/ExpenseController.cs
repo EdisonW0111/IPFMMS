@@ -198,7 +198,8 @@ namespace IPFMMS.Controllers
                 await _context.ExpenseCategories
                     .AsNoTracking()
                     .Where(c => c.IsActive)
-                    .OrderBy(c => c.CategoryName)
+                    .OrderBy(c => c.DisplayOrder)
+                    .ThenBy(c => c.CategoryName)
                     .Select(c => new SelectListItem
                     {
                         Value = c.ExpenseCategoryId,
@@ -389,7 +390,8 @@ namespace IPFMMS.Controllers
                 .Where(c =>
                     c.IsActive ||
                     c.ExpenseCategoryId == expense.ExpenseCategoryId)
-                .OrderBy(c => c.CategoryName)
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.CategoryName)
                 .Select(c => new SelectListItem
                 {
                     Value = c.ExpenseCategoryId,
@@ -537,7 +539,8 @@ namespace IPFMMS.Controllers
                         .Where(c =>
                             c.IsActive ||
                             c.ExpenseCategoryId == expense.ExpenseCategoryId)
-                        .OrderBy(c => c.CategoryName)
+                        .OrderBy(c => c.DisplayOrder)
+                        .ThenBy(c => c.CategoryName)
                         .Select(c => new SelectListItem
                         {
                             Value = c.ExpenseCategoryId,

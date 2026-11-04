@@ -1,0 +1,148 @@
+﻿@model IPFMMS.ViewModels.BudgetIndexViewModel
+@using System.Globalization
+
+@foreach (var warning in Model.RolloverWarnings)
+{
+    <div class="alert alert-warning" role="alert">@warning</div>
+}
+
+<p class="text-muted">Showing budgets for <strong>@Model.BudgetMonth.ToString("MMMM yyyy")</strong>.</p>
+    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Monthly income</div>
+                <h3 class="fw-bold text-success mb-0">RM @Model.MonthlyIncome.ToString("N2")</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Total budget limit</div>
+                <h3 class="fw-bold mb-0">RM @Model.TotalBudget.ToString("N2")</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Spent in budgeted categories</div>
+                <h3 class="fw-bold mb-0">RM @Model.BudgetedSpending.ToString("N2")</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Remaining budget</div>
+                <h3 class="fw-bold @(Model.RemainingBudget < 0 ? "text-danger" : "text-success") mb-0">
+                    RM @Model.RemainingBudget.ToString("N2")
+                </h3>
+            </div></div>
+        </div>
+    </div>
+
+    <p class="text-muted small">
+        Monthly expenses: RM @Model.MonthlyExpenses.ToString("N2").
+        Spending in categories without a budget: RM @Model.UnbudgetedSpending.ToString("N2").
+        Remaining budget includes only budgeted categories and is not your account balance.
+    </p>
+
+    @if (Model.MonthlyIncome == 0 && Model.Budgets.Any(b => b.BudgetType == "Percentage"))
+    {
+        <div class="alert alert-info" role="status">
+            No income is recorded for this month. Percentage budget limits are RM0 until income is added.
+        </div>
+    }
+
+    @if (Model.Budgets.Count == 0)
+    {
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body text-center p-5">
+                <i class="bi bi-wallet2 fs-1 text-muted" aria-hidden="true"></i>
+                <h3 class="h5 fw-semibold mt-3">No budgets for this month</h3>
+                <p class="text-muted">Create a category budget to start monitoring your spending.</p>
+                <a asp-action="Create" class="btn text-white" style="background-color: #16899a;">Create Budget</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h3 class="h5 fw-bold mb-0">Category budgets</h3>
+            <span class="badge bg-light text-dark border">@Model.Budgets.Count budget(s)</span>
+        </div>
+        <div class="row g-3">
+            @foreach (var budget in Model.Budgets)
+            {
+                string color = budget.Status switch
+                {
+                    "Overspent" or "Limit reached" => "danger",
+                    "Warning" => "warning",
+                    "Healthy" => "success",
+                    _ => "secondary"
+                };
+                string progressWidth = budget.Progress.ToString("0.##", CultureInfo.InvariantCulture);
+                <div class="col-12 col-lg-6">
+                    <article class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                                <div>
+                                    <h4 class="h5 fw-bold mb-1">@budget.CategoryName</h4>
+                                    <div class="text-muted small">
+                                        @if (budget.BudgetType == "Percentage")
+                                        {
+                                            <span>@budget.BudgetPercentage?.ToString("0.##")% of monthly income</span>
+                                        }
+                                        else
+                                        {
+                                            <span>Fixed amount</span>
+                                        }
+                                    </div>
+                                </div>
+                                <span class="badge bg-@color @(color == "warning" ? "text-dark" : "text-white")">@budget.Status</span>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2 small mb-3">
+                                <span class="text-muted">Category schedule:</span>
+                                @if (budget.IsRepeating)
+                                {
+                                    <span class="badge bg-info-subtle text-dark border">Repeating</span>
+                                    @if (budget.RepeatUntil.HasValue)
+                                    {
+                                        <span class="text-muted">Until @budget.RepeatUntil.Value.ToString("MMMM yyyy")</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-secondary border">Not repeating</span>
+                                }
+                            </div>
+                            <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                                <span>Spent <strong>RM @budget.AmountSpent.ToString("N2")</strong></span>
+                                <span class="text-muted">Limit RM @budget.BudgetLimit.ToString("N2")</span>
+                            </div>
+                            <div class="progress mb-2" role="progressbar" aria-label="@budget.CategoryName budget usage"
+                                 aria-valuenow="@progressWidth" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar bg-@color" style="width: @(progressWidth)%;"></div>
+                            </div>
+                            <div class="d-flex flex-wrap justify-content-between gap-2 small">
+                                <span class="@(budget.Remaining < 0 ? "text-danger" : "text-muted")">
+                                    @(budget.Remaining < 0 ? "Over budget" : "Remaining"):
+                                    RM @Math.Abs(budget.Remaining).ToString("N2")
+                                </span>
+                                <span class="text-muted">
+                                    @(budget.Utilization.HasValue ? budget.Utilization.Value.ToString("0.##") + "% used" : "Usage percentage unavailable (zero limit)")
+                                </span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                <a asp-action="Edit" asp-route-id="@budget.BudgetId" class="btn btn-sm btn-outline-primary"
+                                   aria-label="Edit @budget.CategoryName budget">Edit</a>
+                                <a asp-action="Delete" asp-route-id="@budget.BudgetId" class="btn btn-sm btn-outline-danger"
+                                   aria-label="Delete @budget.CategoryName budget">Delete</a>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(budget.Notes))
+                            {
+                                <p class="text-muted small mt-3 mb-0 text-break">@budget.Notes</p>
+                            }
+                        </div>
+                    </article>
+                </div>
+            }
+        </div>
+    }

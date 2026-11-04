@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using IPFMMS.Data;
 using IPFMMS.Services;
 using Microsoft.AspNetCore.Identity;
@@ -28,6 +28,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IdGeneratorService>();
+builder.Services.AddScoped<BudgetRolloverService>();
+builder.Services.AddScoped<AutomaticSavingsService>();
+builder.Services.AddHostedService<AutomaticSavingsWorker>();
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<OtpService>();

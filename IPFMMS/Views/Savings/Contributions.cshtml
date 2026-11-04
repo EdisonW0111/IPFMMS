@@ -1,0 +1,122 @@
+@model IPFMMS.ViewModels.SavingsContributionHistoryViewModel
+@{
+    ViewData["Title"] = "Contribution History";
+    Layout = "_DashboardLayout";
+}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Contribution History</h2>
+            <p class="text-muted mb-0 text-break">@Model.Goal.GoalName</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to Savings Goals</a>
+            @if (Model.Goal.Status == "Active" && !Model.Goal.IsCompleted)
+            {
+                <a asp-action="Contribute" asp-route-id="@Model.Goal.SavingsGoalId" class="btn text-white" style="background-color: #16899a;">Record Contribution</a>
+            }
+        </div>
+    </div>
+    @if (TempData["SuccessMessage"] is string message)
+    {
+        <div class="alert alert-success" role="status">@message</div>
+    }
+    @if (Model.AutomaticAttempts.Count > 0)
+    {
+        <details class="mb-4"><summary>Recent automatic saving attempts</summary>
+            <p class="text-muted small">Skipped attempts are not retried. Extra savings credit carries forward. Missed dates while the app was offline are skipped.</p>
+            <div class="table-responsive"><table class="table"><thead><tr><th>Due date</th><th>Status</th><th>Extra credit used</th><th>Saved</th></tr></thead><tbody>
+            @foreach (var attempt in Model.AutomaticAttempts)
+            {
+                <tr><td>@attempt.DueDate.ToString("dd MMM yyyy")</td><td>@(attempt.Status switch { "InsufficientFunds" => "Skipped: insufficient funds", "CoveredByExtra" => "Covered by extra savings", "MissedOffline" => "Skipped: app was offline", "Saved" => "Saved automatically", _ => "Not processed" })</td><td>RM @attempt.CreditApplied.ToString("N2")</td><td>RM @attempt.Amount.ToString("N2")</td></tr>
+            }
+            </tbody></table></div>
+        </details>
+    }
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4"><div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Target amount</div>
+            <h3 class="fw-bold mb-0">RM @Model.Goal.TargetAmount.ToString("N2")</h3>
+        </div></div></div>
+        <div class="col-12 col-md-4"><div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Total contributed across all pages</div>
+            <h3 class="fw-bold text-success mb-0">RM @Model.Goal.TotalSaved.ToString("N2")</h3>
+        </div></div></div>
+        <div class="col-12 col-md-4"><div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Remaining to target</div>
+            <h3 class="fw-bold mb-0">RM @Model.Goal.Remaining.ToString("N2")</h3>
+        </div></div></div>
+    </div>
+    <div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h3 class="h5 fw-bold mb-0">Recorded contributions</h3>
+            <span class="badge bg-light text-dark border">@Model.Goal.ContributionCount record(s)</span>
+        </div>
+        @if (Model.Goal.ContributionCount == 0)
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-piggy-bank fs-1 text-muted" aria-hidden="true"></i>
+                <h4 class="h6 fw-semibold mt-3">No contributions recorded yet</h4>
+                <p class="text-muted mb-0">Manual and successfully processed automatic savings appear here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <caption class="visually-hidden">Contributions for @Model.Goal.GoalName</caption>
+                    <thead class="table-light"><tr>
+                        <th scope="col">Date</th>
+                        <th scope="col" class="text-end">Amount (RM)</th>
+                        <th scope="col">Method</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">Actions</th>
+                    </tr></thead>
+                    <tbody>
+                        @foreach (var contribution in Model.Contributions)
+                        {
+                            <tr>
+                                <td class="text-nowrap">@contribution.ContributionDate.ToString("dd MMM yyyy")</td>
+                                <td class="text-end text-success fw-semibold text-nowrap">@contribution.Amount.ToString("N2")</td>
+                                <td>@contribution.ContributionMethod @(contribution.ContributionMethod == "Automatic" ? "(locked)" : "")</td>
+                                <td class="text-muted text-break">@(string.IsNullOrWhiteSpace(contribution.Description) ? "-" : contribution.Description)</td>
+                                <td class="text-nowrap">
+                                    @if (contribution.ContributionMethod == "Manual" && Model.Goal.Status is "Active" or "Completed")
+                                    {
+                                        <a asp-action="EditContribution" asp-route-id="@contribution.ContributionId" class="btn btn-sm btn-outline-primary">Edit</a>
+                                        <a asp-action="DeleteContribution" asp-route-id="@contribution.ContributionId" class="btn btn-sm btn-outline-danger">Delete</a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mt-4">
+                <span class="text-muted small">Showing @Model.FirstRecord–@Model.LastRecord of @Model.Goal.ContributionCount</span>
+                @if (Model.TotalPages > 1)
+                {
+                    <nav aria-label="Contribution history pages">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(Model.PageNumber == 1 ? "disabled" : "")">
+                                @if (Model.PageNumber > 1)
+                                {
+                                    <a asp-action="Contributions" asp-route-id="@Model.Goal.SavingsGoalId" asp-route-page="@(Model.PageNumber - 1)" class="page-link">Previous</a>
+                                }
+                                else { <span class="page-link">Previous</span> }
+                            </li>
+                            <li class="page-item active"><span class="page-link" aria-current="page">@Model.PageNumber / @Model.TotalPages</span></li>
+                            <li class="page-item @(Model.PageNumber == Model.TotalPages ? "disabled" : "")">
+                                @if (Model.PageNumber < Model.TotalPages)
+                                {
+                                    <a asp-action="Contributions" asp-route-id="@Model.Goal.SavingsGoalId" asp-route-page="@(Model.PageNumber + 1)" class="page-link">Next</a>
+                                }
+                                else { <span class="page-link">Next</span> }
+                            </li>
+                        </ul>
+                    </nav>
+                }
+            </div>
+        }
+    </div></div>
+</div>

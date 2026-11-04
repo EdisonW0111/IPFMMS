@@ -1,0 +1,23 @@
+@model IPFMMS.ViewModels.EditSavingsContributionViewModel
+@{
+    ViewData["Title"] = "Delete Contribution";
+    Layout = "_DashboardLayout";
+}
+<div class="container-fluid py-4">
+    <h2 class="fw-bold">Delete Contribution</h2>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4">
+        <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+        <h3 class="h5 text-break">@Model.GoalName</h3>
+        <p>RM @Model.Amount?.ToString("N2") on @Model.ContributionDate?.ToString("dd MMM yyyy")</p>
+        <p class="text-break">@Model.Description</p>
+        <p>This permanently removes this contribution record. Your saved total will decrease, and a completed goal will reopen if its target is no longer reached. This corrects your records; it does not transfer money.</p>
+        <form asp-action="DeleteContribution" method="post">
+            <input type="hidden" name="id" value="@Model.ContributionId" />
+            <a asp-action="Contributions" asp-route-id="@Model.SavingsGoalId" class="btn btn-outline-secondary">Cancel</a>
+            @if (Model.GoalStatus is "Active" or "Completed")
+            {
+                <button type="submit" class="btn btn-danger">Delete Contribution</button>
+            }
+        </form>
+    </div></div>
+</div>

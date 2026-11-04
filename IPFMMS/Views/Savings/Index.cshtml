@@ -1,0 +1,154 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration AppConfiguration
+@model IPFMMS.ViewModels.SavingsIndexViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Savings Goals";
+    Layout = "_DashboardLayout";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">Savings Goals</h2>
+            <p class="text-muted mb-0">See how your recorded contributions bring each goal closer.</p>
+        </div>
+        <a asp-action="Create" class="btn text-white" style="background-color: #16899a;">
+            <i class="bi bi-plus-circle me-1" aria-hidden="true"></i> Create Savings Goal
+        </a>
+    </div>
+
+    @if (TempData["SuccessMessage"] is string successMessage)
+    {
+        <div class="alert alert-success" role="status">@successMessage</div>
+    }
+
+    @if (!bool.TryParse(AppConfiguration["AutomaticSavings:Enabled"], out var enabled) || !enabled)
+    {
+        <div class="alert alert-info" role="status">Automatic saving is currently paused. Scheduled deductions will begin after this feature is enabled.</div>
+    }
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Total target across goals</div>
+                <h3 class="fw-bold mb-0">RM @Model.TotalTarget.ToString("N2")</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Total saved</div>
+                <h3 class="fw-bold text-success mb-0">RM @Model.TotalSaved.ToString("N2")</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Remaining to reach goals</div>
+                <h3 class="fw-bold mb-0">RM @Model.TotalRemaining.ToString("N2")</h3>
+            </div></div>
+        </div>
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
+                <div class="text-muted small mb-2">Active goals</div>
+                <h3 class="fw-bold mb-1">@Model.ActiveGoals</h3>
+                <span class="text-muted small">@Model.CompletedGoals completed</span>
+            </div></div>
+        </div>
+    </div>
+    <p class="text-muted small mb-4">Saved amounts include manual contributions and completed automatic savings. Scheduled amounts are not saved until recorded.</p>
+
+    @if (Model.Goals.Count == 0)
+    {
+        <div class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-5 text-center">
+                <i class="bi bi-piggy-bank fs-1 text-muted" aria-hidden="true"></i>
+                <h3 class="h5 fw-semibold mt-3">No savings goals yet</h3>
+                <p class="text-muted">Create your first goal and give your savings a purpose.</p>
+                <a asp-action="Create" class="btn text-white" style="background-color: #16899a;">Create Savings Goal</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+            <h3 class="h5 fw-bold mb-0">Your goals</h3>
+            <span class="badge bg-light text-dark border">@Model.Goals.Count goal(s)</span>
+        </div>
+        <div class="row g-3">
+            @foreach (var goal in Model.Goals)
+            {
+                string color = goal.DisplayStatus switch
+                {
+                    "Completed" => "success",
+                    "Overdue" => "warning",
+                    "Active" => "info",
+                    _ => "secondary"
+                };
+                string width = goal.ProgressPercent.ToString("0.##", CultureInfo.InvariantCulture);
+                <div class="col-12 col-lg-6">
+                    <article class="card border-0 shadow-sm rounded-4 h-100">
+                        <div class="card-body p-4">
+                            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                                <div class="text-break">
+                                    <h4 class="h5 fw-bold mb-1">@goal.GoalName</h4>
+                                    <div class="text-muted small">@(goal.GoalType == "ShortTerm" ? "Short-term" : "Long-term")</div>
+                                </div>
+                                <span class="badge bg-@color @(color is "warning" or "info" ? "text-dark" : "text-white")">@goal.DisplayStatus</span>
+                            </div>
+                            <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                                <span>Saved <strong class="text-success">RM @goal.TotalSaved.ToString("N2")</strong></span>
+                                <span class="text-muted">Target RM @goal.TargetAmount.ToString("N2")</span>
+                            </div>
+                            <div class="progress mb-2" role="progressbar" aria-label="@goal.GoalName savings progress"
+                                 aria-valuenow="@width" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar bg-success" style="width: @(width)%;"></div>
+                            </div>
+                            <div class="d-flex flex-wrap justify-content-between gap-2 small mb-3">
+                                <span>Remaining RM @goal.Remaining.ToString("N2")</span>
+                                <span class="text-muted">@goal.ProgressPercent.ToString("0.##")% saved</span>
+                            </div>
+                            <div class="text-muted small">
+                                <div class="mb-1">Target date: @goal.TargetDate.ToString("dd MMM yyyy")</div>
+                                @if (goal.SavingsMethod == "AutomaticMonthlyTarget")
+                                {
+                                    @if (goal.NextAutomaticSavingDate.HasValue && !goal.IsCompleted)
+                                    {
+                                        <div class="mb-1">Next saving date: @goal.NextAutomaticSavingDate.Value.ToString("dd MMM yyyy") - estimated RM @goal.NextDeduction.ToString("N2")
+                                        </div><div class="mb-1">Extra savings credit: RM @goal.ExtraCredit.ToString("N2")</div>
+                                    }
+                                    else if (!goal.AutomaticSavingDay.HasValue)
+                                    {
+                                        <div class="mb-1">Automatic deductions are not enabled. Edit this goal and select a saving day.</div>
+                                    }
+                                    <div class="mb-1">Scheduled monthly amount: RM @((goal.MonthlyTargetAmount ?? 0m).ToString("N2"))</div>
+                                }
+                                else
+                                {
+                                    <div class="mb-1">Manual contributions</div>
+                                }
+                                <div>@goal.ContributionCount contribution(s) recorded</div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 mt-3">
+                                @if (goal.Status is "Active" or "Completed")
+                                {
+                                    <a asp-action="Edit" asp-route-id="@goal.SavingsGoalId"
+                                       class="btn btn-sm btn-outline-primary">Edit Goal</a>
+                                }
+                                @if (goal.Status == "Active" && !goal.IsCompleted)
+                                {
+                                    <a asp-action="Contribute" asp-route-id="@goal.SavingsGoalId"
+                                       class="btn btn-sm btn-outline-success">Record Contribution</a>
+                                }
+                                @if (goal.ContributionCount == 0)
+                                {
+                                    <a asp-action="Delete" asp-route-id="@goal.SavingsGoalId"
+                                       class="btn btn-sm btn-outline-danger">Delete Goal</a>
+                                }
+                                <a asp-action="Contributions" asp-route-id="@goal.SavingsGoalId"
+                                   class="btn btn-sm btn-outline-secondary">Contribution History</a>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            }
+        </div>
+    }
+</div>

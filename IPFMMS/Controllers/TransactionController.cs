@@ -1,4 +1,5 @@
-﻿using IPFMMS.Data;
+﻿using System.Globalization;
+using IPFMMS.Data;
 using IPFMMS.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,7 +22,7 @@ namespace IPFMMS.Controllers
 
         // GET: /Transaction/Index
         [HttpGet]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? month = null)
         {
             string? userId =
                 User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -31,13 +32,25 @@ namespace IPFMMS.Controllers
                 return Challenge();
             }
 
+            var today = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date;
+            var selectedMonth = new DateTime(today.Year, today.Month, 1);
+            if (month != null)
+            {
+                if (DateTime.TryParseExact(month, "yyyy-MM", CultureInfo.InvariantCulture,
+                    DateTimeStyles.None, out var parsed) && parsed.Year >= 1000 && parsed.Year <= 9998)
+                    selectedMonth = new DateTime(parsed.Year, parsed.Month, 1);
+                else
+                    ModelState.AddModelError("month", "Please select a valid month. Showing the current month.");
+            }
+            var nextMonth = selectedMonth.AddMonths(1);
+
             // Retrieve the current user's income records.
             var incomes = await (
                 from income in _context.Incomes.AsNoTracking()
                 join category in _context.IncomeCategories.AsNoTracking()
                     on income.IncomeCategoryId
                     equals category.IncomeCategoryId
-                where income.UserId == userId
+                where income.UserId == userId && income.IncomeDate >= selectedMonth && income.IncomeDate < nextMonth
                 select new TransactionViewModel
                 {
                     TransactionId = income.IncomeId,
@@ -55,7 +68,7 @@ namespace IPFMMS.Controllers
                 join category in _context.ExpenseCategories.AsNoTracking()
                     on expense.ExpenseCategoryId
                     equals category.ExpenseCategoryId
-                where expense.UserId == userId
+                where expense.UserId == userId && expense.ExpenseDate >= selectedMonth && expense.ExpenseDate < nextMonth
                 select new TransactionViewModel
                 {
                     TransactionId = expense.ExpenseId,
@@ -68,10 +81,19 @@ namespace IPFMMS.Controllers
                 }
             ).ToListAsync();
 
+            // Use the contribution date for monthly allocations, including
+            // completed goals. Contributions remain separate from expenses.
+            decimal savingsAllocated = await _context.SavingsContributions.AsNoTracking()
+                .Where(c => c.SavingsGoal!.UserId == userId &&
+                    c.ContributionDate >= selectedMonth && c.ContributionDate < nextMonth)
+                .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+
             var model = new TransactionIndexViewModel
             {
+                SelectedMonth = selectedMonth,
                 TotalIncome = incomes.Sum(i => i.Amount),
                 TotalExpenses = expenses.Sum(e => e.Amount),
+                TotalSavingsAllocated = savingsAllocated,
 
                 Transactions = incomes
         .Concat(expenses)
@@ -80,6 +102,9 @@ namespace IPFMMS.Controllers
         .Take(10)
         .ToList()
             };
+
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return PartialView("_MonthlyOverview", model);
 
             return View(model);
         }
@@ -103,7 +128,8 @@ namespace IPFMMS.Controllers
             var incomeCategories = await _context.IncomeCategories
                 .AsNoTracking()
                 .Where(c => c.IsActive)
-                .OrderBy(c => c.CategoryName)
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.CategoryName)
                 .Select(c => new SelectListItem
                 {
                     Value = c.IncomeCategoryId,
@@ -115,7 +141,8 @@ namespace IPFMMS.Controllers
             var expenseCategories = await _context.ExpenseCategories
                 .AsNoTracking()
                 .Where(c => c.IsActive)
-                .OrderBy(c => c.CategoryName)
+                .OrderBy(c => c.DisplayOrder)
+                .ThenBy(c => c.CategoryName)
                 .Select(c => new SelectListItem
                 {
                     Value = c.ExpenseCategoryId,

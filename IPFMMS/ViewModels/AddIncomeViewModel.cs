@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using IPFMMS.Models;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace IPFMMS.ViewModels
@@ -27,6 +28,21 @@ namespace IPFMMS.ViewModels
         public string? Description { get; set; }
 
         // Used to populate the income category dropdown.
+        [Required(ErrorMessage = "Please select a payment method.")]
+        [StringLength(30)]
+        [Display(Name = "Payment Method")]
+        public string? PaymentMethod { get; set; }
+
+        [StringLength(100, ErrorMessage = "Reference cannot exceed 100 characters.")]
+        [Display(Name = "Reference (Optional)")]
+        public string? Reference { get; set; }
+
+        public List<SelectListItem> PaymentMethods { get; set; } =
+            IncomePaymentMethods.Values.Select(value => new SelectListItem
+            {
+                Value = value, Text = value
+            }).ToList();
+
         public List<SelectListItem> IncomeCategories { get; set; }
             = new List<SelectListItem>();
     }

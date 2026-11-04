@@ -1,0 +1,109 @@
+﻿@model IPFMMS.ViewModels.CreateSavingsGoalViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Create Savings Goal";
+    Layout = "_DashboardLayout";
+    string today = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date
+        .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+}
+
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-7">
+            <div class="mb-4">
+                <h2 class="fw-bold mb-1">Create Savings Goal</h2>
+                <p class="text-muted mb-0">Set a target and choose how you want to plan your savings.</p>
+            </div>
+
+            @if (TempData["SuccessMessage"] is string successMessage)
+            {
+                <div class="alert alert-success" role="status">@successMessage</div>
+            }
+
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-md-5">
+                    <form asp-controller="Savings" asp-action="Create" method="post" id="createSavingsGoalForm" data-today="@today">
+                        @Html.AntiForgeryToken()
+                        <div asp-validation-summary="ModelOnly" class="text-danger mb-3" role="alert"></div>
+
+                        <div class="mb-4">
+                            <label asp-for="GoalName" class="form-label fw-semibold"></label>
+                            <input asp-for="GoalName" class="form-control" maxlength="100" required
+                                   placeholder="e.g. New laptop" aria-describedby="goalNameError" />
+                            <span asp-validation-for="GoalName" id="goalNameError" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="GoalType" class="form-label fw-semibold"></label>
+                            <select asp-for="GoalType" asp-items="Model.GoalTypes" class="form-select" required aria-describedby="goalTypeError">
+                                <option value="">-- Select Goal Type --</option>
+                            </select>
+                            <span asp-validation-for="GoalType" id="goalTypeError" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="TargetAmount" class="form-label fw-semibold"></label>
+                            <div class="input-group">
+                                <span class="input-group-text">RM</span>
+                                <input asp-for="TargetAmount" type="number" min="0.01" max="9999999999.99" step="0.01"
+                                       class="form-control" required placeholder="0.00" aria-describedby="targetAmountError" />
+                            </div>
+                            <span asp-validation-for="TargetAmount" id="targetAmountError" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="TargetDate" class="form-label fw-semibold"></label>
+                            <input asp-for="TargetDate" type="date" asp-format="{0:yyyy-MM-dd}" min="@today" max="9998-12-31"
+                                   class="form-control" required aria-describedby="targetDateHelp targetDateError" />
+                            <span asp-validation-for="TargetDate" id="targetDateError" class="text-danger small"></span>
+                            <div id="targetDateHelp" class="form-text">Choose today or a future date to aim for.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label asp-for="SavingsMethod" class="form-label fw-semibold"></label>
+                            <select asp-for="SavingsMethod" asp-items="Model.SavingsMethods" class="form-select" required
+                                    aria-describedby="savingsMethodHelp savingsMethodError">
+                                <option value="">-- Select Savings Method --</option>
+                            </select>
+                            <span asp-validation-for="SavingsMethod" id="savingsMethodError" class="text-danger small"></span>
+                            <div id="savingsMethodHelp" class="form-text">
+                                Manual saving records your contributions. Automatic saving also records scheduled monthly allocations.
+                            </div>
+                        </div>
+
+                        <div class="mb-4" id="automaticSavingDayGroup">
+                            <label asp-for="AutomaticSavingDay" class="form-label"></label>
+                            <input asp-for="AutomaticSavingDay" type="number" min="1" max="28" class="form-control" />
+                            <span asp-validation-for="AutomaticSavingDay" class="text-danger"></span>
+                            <p class="form-text">On the next occurrence of this day, automatic saving allocates available funds inside IPFMMS. Extra manual savings reduce future deductions. Insufficient funds skip that month. Automatic records cannot be edited or deleted. No bank transfer is made.</p>
+                        </div>
+                        <div class="mb-4" id="monthlyTargetGroup">
+                            <label asp-for="MonthlyTargetAmount" class="form-label fw-semibold"></label>
+                            <div class="input-group">
+                                <span class="input-group-text">RM</span>
+                                <input asp-for="MonthlyTargetAmount" type="number" min="0.01" max="9999999999.99" step="0.01" readonly
+                                       class="form-control" placeholder="0.00" aria-describedby="monthlyTargetHelp monthlyTargetError" />
+                            </div>
+                            <span asp-validation-for="MonthlyTargetAmount" id="monthlyTargetError" class="text-danger small"></span>
+                            <div id="monthlyTargetHelp" class="form-text" aria-live="polite">Calculated from the target amount and date, including this month and the target month.</div>
+                        </div>
+
+                        <div class="d-flex flex-wrap justify-content-end gap-2">
+                            <a asp-controller="Savings" asp-action="Index" class="btn btn-outline-secondary px-4">Cancel</a>
+                            <button type="submit" class="btn text-white px-4" style="background-color: #16899a;">
+                                <i class="bi bi-plus-circle me-1" aria-hidden="true"></i> Create Savings Goal
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/savings-goal-create.js" asp-append-version="true"></script>
+}

@@ -1,4 +1,4 @@
-﻿using IPFMMS.Models;
+using IPFMMS.Models;
 using IPFMMS.Services;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,119 +6,55 @@ namespace IPFMMS.Data
 {
     public static class CategorySeeder
     {
-        public static async Task SeedAsync(
-            ApplicationDbContext context,
-            IdGeneratorService idGenerator)
+        public static async Task SeedAsync(ApplicationDbContext context, IdGeneratorService idGenerator)
         {
-            // Default income categories.
-            string[] incomeNames =
+            var incomeCategories = (await context.IncomeCategories.ToListAsync())
+                .ToDictionary(c => c.CategoryName, StringComparer.OrdinalIgnoreCase);
+            for (int index = 0; index < CategoryDefaults.IncomeNames.Count; index++)
             {
-                "Salary",
-                "Allowance",
-                "Scholarship",
-                "Part-Time Job",
-                "Freelance",
-                "Investment Returns",
-                "Gifts",
-                "Other Income"
-            };
-
-            // Default expense categories.
-            string[] expenseNames =
-            {
-                "Food & Drinks",
-                "Transportation",
-                "Education",
-                "Shopping",
-                "Entertainment",
-                "Bills & Utilities",
-                "Healthcare",
-                "Loan Interest & Fees",
-                "Other Expenses"
-            };
-
-            // Seed income categories.
-            var existingIncomeNames =
-                await context.IncomeCategories
-                    .Select(c => c.CategoryName)
-                    .ToListAsync();
-
-            var existingIncomeIds =
-                await context.IncomeCategories
-                    .Select(c => c.IncomeCategoryId)
-                    .ToListAsync();
-
-            int incomeNumber = existingIncomeIds
-                .Select(id => int.TryParse(
-                    id.Replace("ICG", ""), out int n) ? n : 0)
-                .DefaultIfEmpty(0)
-                .Max();
-
-            foreach (string name in incomeNames)
-            {
-                if (existingIncomeNames.Any(n =>
-                    string.Equals(
-                        n,
-                        name,
-                        StringComparison.OrdinalIgnoreCase)))
+                string name = CategoryDefaults.IncomeNames[index];
+                if (incomeCategories.TryGetValue(name, out var existing))
                 {
+                    // Fill only the unassigned position. Preserve identity,
+                    // activation state, and any ordering assigned by an admin.
+                    if (existing.DisplayOrder == CategoryDefaults.UnassignedOrder)
+                        existing.DisplayOrder = index + 1;
                     continue;
                 }
-
-                string categoryId = await idGenerator.GenerateIdAsync("ICG");
-
-                context.IncomeCategories.Add(
-                    new IncomeCategory
-                    {
-                        IncomeCategoryId = categoryId,
-                        CategoryName = name,
-                        IsActive = true,
-                        CreatedDate = DateTime.UtcNow
-                    });
+                var category = new IncomeCategory
+                {
+                    IncomeCategoryId = await idGenerator.GenerateIdAsync("ICG"),
+                    CategoryName = name,
+                    DisplayOrder = index + 1,
+                    IsActive = true,
+                    CreatedDate = DateTime.UtcNow
+                };
+                context.IncomeCategories.Add(category);
+                incomeCategories.Add(name, category);
             }
 
-            // Seed expense categories.
-            var existingExpenseNames =
-                await context.ExpenseCategories
-                    .Select(c => c.CategoryName)
-                    .ToListAsync();
-
-            var existingExpenseIds =
-                await context.ExpenseCategories
-                    .Select(c => c.ExpenseCategoryId)
-                    .ToListAsync();
-
-            int expenseNumber = existingExpenseIds
-                .Select(id => int.TryParse(
-                    id.Replace("ECG", ""), out int n) ? n : 0)
-                .DefaultIfEmpty(0)
-                .Max();
-
-            foreach (string name in expenseNames)
+            var expenseCategories = (await context.ExpenseCategories.ToListAsync())
+                .ToDictionary(c => c.CategoryName, StringComparer.OrdinalIgnoreCase);
+            for (int index = 0; index < CategoryDefaults.ExpenseNames.Count; index++)
             {
-                if (existingExpenseNames.Any(n =>
-                    string.Equals(
-                        n,
-                        name,
-                        StringComparison.OrdinalIgnoreCase)))
+                string name = CategoryDefaults.ExpenseNames[index];
+                if (expenseCategories.TryGetValue(name, out var existing))
                 {
+                    if (existing.DisplayOrder == CategoryDefaults.UnassignedOrder)
+                        existing.DisplayOrder = index + 1;
                     continue;
                 }
-
-                string categoryId = await idGenerator.GenerateIdAsync("ECG");
-
-                context.ExpenseCategories.Add(
-                    new ExpenseCategory
-                    {
-                        ExpenseCategoryId = categoryId,
-                        CategoryName = name,
-                        IsActive = true,
-                        CreatedDate = DateTime.UtcNow
-                    });
-
-                existingExpenseNames.Add(name);
+                var category = new ExpenseCategory
+                {
+                    ExpenseCategoryId = await idGenerator.GenerateIdAsync("ECG"),
+                    CategoryName = name,
+                    DisplayOrder = index + 1,
+                    IsActive = true,
+                    CreatedDate = DateTime.UtcNow
+                };
+                context.ExpenseCategories.Add(category);
+                expenseCategories.Add(name, category);
             }
-
             await context.SaveChangesAsync();
         }
     }

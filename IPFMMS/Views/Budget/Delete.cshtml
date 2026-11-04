@@ -1,0 +1,37 @@
+﻿@model IPFMMS.ViewModels.DeleteBudgetViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Delete Budget";
+    Layout = "_DashboardLayout";
+}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center"><div class="col-12 col-lg-8 col-xl-7">
+        <h2 class="fw-bold mb-4">Delete Budget</h2>
+        <div class="card border-0 shadow-sm rounded-4"><div class="card-body p-4 p-md-5">
+            <h3 class="h5 fw-bold">@Model.CategoryName — @Model.BudgetMonth.ToString("MMMM yyyy")</h3>
+            <p>
+                @if (Model.BudgetType == "Percentage")
+                {
+                    <span>Budget: @Model.BudgetPercentage?.ToString("0.##")% of monthly income</span>
+                }
+                else
+                {
+                    <span>Budget: RM @Model.BudgetAmount?.ToString("N2")</span>
+                }
+            </p>
+            <div class="alert alert-warning" role="alert">
+                This permanently deletes the selected month's budget and stops monthly repetition for this category.
+                Other saved monthly budgets and all expense transactions remain unchanged.
+            </div>
+            <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+            <form asp-controller="Budget" asp-action="Delete" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.BudgetId" />
+                <div class="d-flex flex-wrap justify-content-end gap-2">
+                    <a asp-action="Index" asp-route-month="@Model.BudgetMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture)" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-danger">Delete budget and stop repeating</button>
+                </div>
+            </form>
+        </div></div>
+    </div></div>
+</div>
