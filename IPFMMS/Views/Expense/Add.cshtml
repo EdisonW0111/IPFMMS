@@ -1,0 +1,188 @@
+﻿@model IPFMMS.ViewModels.AddExpenseViewModel
+
+@{
+    ViewData["Title"] = "Add Expense";
+    Layout = "_DashboardLayout";
+}
+
+<div class="container-fluid py-4">
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-7">
+
+            <!-- Page Heading -->
+            <div class="mb-4">
+                <h2 class="fw-bold mb-1">Add Expense</h2>
+                <p class="text-muted mb-0">
+                    Record your spending and keep track of
+                    your financial activities.
+                </p>
+            </div>
+
+            <!-- Expense Form Card -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-md-5">
+
+                    <form asp-controller="Expense"
+                          asp-action="Add"
+                          method="post"
+                          enctype="multipart/form-data">
+
+                        @Html.AntiForgeryToken()
+
+                        <div asp-validation-summary="ModelOnly"
+                             class="text-danger mb-3"></div>
+
+                        <!-- Expense Category -->
+                        <div class="mb-4">
+                            <label asp-for="ExpenseCategoryId"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <select asp-for="ExpenseCategoryId"
+                                    asp-items="Model.ExpenseCategories"
+                                    class="form-select">
+
+                                <option value="">
+                                    -- Select Expense Category --
+                                </option>
+
+                            </select>
+
+                            <span asp-validation-for="ExpenseCategoryId"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="mb-4">
+                            <label asp-for="Amount"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <div class="input-group">
+
+                                <span class="input-group-text">RM</span>
+
+                                <input asp-for="Amount"
+                                       type="number"
+                                       min="0.01"
+                                       max="999999999.99"
+                                       step="0.01"
+                                       placeholder="0.00"
+                                       class="form-control" />
+
+                            </div>
+
+                            <span asp-validation-for="Amount"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Expense Date -->
+                        <div class="mb-4">
+                            <label asp-for="ExpenseDate"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <input asp-for="ExpenseDate"
+                                   type="date"
+                                   max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                   class="form-control" />
+
+                            <span asp-validation-for="ExpenseDate"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-4">
+                            <label asp-for="PaymentMethod"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <select asp-for="PaymentMethod"
+                                    asp-items="Model.PaymentMethods"
+                                    class="form-select">
+
+                                <option value="">
+                                    -- Select Payment Method --
+                                </option>
+
+                            </select>
+
+                            <span asp-validation-for="PaymentMethod"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-4">
+                            <label asp-for="Description"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <textarea asp-for="Description"
+                                      class="form-control"
+                                      rows="3"
+                                      maxlength="255"
+                                      placeholder="Enter an optional description..."></textarea>
+
+                            <span asp-validation-for="Description"
+                                  class="text-danger small"></span>
+
+                            <div class="form-text">
+                                Maximum 255 characters.
+                            </div>
+                        </div>
+
+                        <!-- Receipt Upload -->
+                        <div class="mb-4">
+                            <label asp-for="ReceiptFile"
+                                   class="form-label fw-semibold">
+                                Receipt (Optional)
+                            </label>
+
+                            <input asp-for="ReceiptFile"
+                                   type="file"
+                                   accept=".jpg,.jpeg,.png,.pdf"
+                                   class="form-control" />
+
+                            <span asp-validation-for="ReceiptFile"
+                                  class="text-danger small"></span>
+
+                            <div class="form-text">
+                                Optional. Supported formats: JPG, PNG, PDF.
+                                Maximum file size: 5 MB.
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-end flex-wrap gap-2">
+
+                            <a asp-controller="Transaction"
+                               asp-action="Index"
+                               class="btn btn-outline-secondary px-4">
+                                Cancel
+                            </a>
+
+                            <button type="submit"
+                                    class="btn text-white px-4"
+                                    style="background-color: #16899a;">
+
+                                <i class="bi bi-plus-circle me-1"></i>
+                                Add Expense
+
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

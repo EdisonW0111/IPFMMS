@@ -141,6 +141,21 @@ body {
 .dashboard-main {
     flex: 1;
     min-width: 0;
+    /* Reserve space for the fixed sidebar */
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    transition: margin-left 0.25s ease, width 0.25s ease;
+}
+
+/* Adjust the main content when sidebar is collapsed */
+.dashboard-wrapper.sidebar-collapsed .dashboard-main {
+    margin-left: var(--sidebar-collapsed-width);
+    width: calc(100% - var(--sidebar-collapsed-width));
+}
+
+/* Prevent layout animation during initial loading */
+.dashboard-wrapper.sidebar-initializing .dashboard-main {
+    transition: none !important;
 }
 
 .dashboard-header {
@@ -406,4 +421,79 @@ body {
     .profile-menu {
         width: 220px;
     }
+}
+
+.dashboard-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1000;
+}
+
+    /* Sidebar navigation scrolls independently */
+    .dashboard-sidebar .sidebar-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+    }
+
+    /* Keep Collapse Sidebar button at the bottom */
+    .dashboard-sidebar .sidebar-footer {
+        flex: 0 0 auto;
+        margin-top: auto;
+    }
+
+    /* Avoid unnecessary spacing inside the footer */
+    .dashboard-sidebar .sidebar-bottom {
+        margin-top: 0;
+        padding-top: 12px;
+    }
+
+/* =========================================
+   MOBILE SIDEBAR FIX
+   ========================================= */
+
+@media (max-width: 768px) {
+
+    .dashboard-main,
+    .dashboard-wrapper.sidebar-collapsed .dashboard-main {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .dashboard-sidebar,
+    .dashboard-wrapper.sidebar-collapsed .dashboard-sidebar {
+        width: var(--sidebar-width);
+        transform: translateX(-100%);
+        z-index: 1100;
+    }
+
+    .dashboard-wrapper.mobile-sidebar-open .dashboard-sidebar {
+        transform: translateX(0);
+    }
+
+    /* Keep scroll inside the navigation */
+    .dashboard-sidebar {
+        overflow: hidden;
+    }
+
+        .dashboard-sidebar .sidebar-scroll {
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        /* Hide the desktop collapse button on mobile */
+        .dashboard-sidebar .sidebar-footer {
+            display: none;
+        }
 }

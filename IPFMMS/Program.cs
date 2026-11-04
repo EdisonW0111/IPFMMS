@@ -81,6 +81,7 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 });
+builder.Services.AddScoped<IReceiptStorageService, AzureReceiptStorageService>();
 
 var app = builder.Build();
 

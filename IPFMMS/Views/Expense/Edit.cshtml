@@ -1,0 +1,301 @@
+﻿@model IPFMMS.ViewModels.EditExpenseViewModel
+
+@{
+    ViewData["Title"] = "Edit Expense";
+    Layout = "_DashboardLayout";
+}
+
+<div class="container-fluid py-4">
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-7">
+
+            <!-- Page Heading -->
+            <div class="mb-4">
+                <h2 class="fw-bold mb-1">Edit Expense</h2>
+                <p class="text-muted mb-0">
+                    Update your expense information and manage
+                    your uploaded receipt.
+                </p>
+            </div>
+
+            <!-- Edit Expense Card -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-md-5">
+
+                    <form asp-controller="Expense"
+                          asp-action="Edit"
+                          method="post"
+                          enctype="multipart/form-data">
+
+                        @Html.AntiForgeryToken()
+
+                        <!-- Keep the expense ID internally -->
+                        <input asp-for="ExpenseId"
+                               type="hidden" />
+
+                        <!-- Validation Summary -->
+                        <div asp-validation-summary="ModelOnly"
+                             class="text-danger mb-3"></div>
+
+                        <!-- Expense Category -->
+                        <div class="mb-4">
+                            <label asp-for="ExpenseCategoryId"
+                                   class="form-label fw-semibold"></label>
+
+                            <select asp-for="ExpenseCategoryId"
+                                    asp-items="Model.ExpenseCategories"
+                                    class="form-select">
+                                <option value="">
+                                    -- Select Expense Category --
+                                </option>
+                            </select>
+
+                            <span asp-validation-for="ExpenseCategoryId"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="mb-4">
+                            <label asp-for="Amount"
+                                   class="form-label fw-semibold"></label>
+
+                            <div class="input-group">
+                                <span class="input-group-text">RM</span>
+
+                                <input asp-for="Amount"
+                                       type="number"
+                                       min="0.01"
+                                       max="999999999.99"
+                                       step="0.01"
+                                       class="form-control"
+                                       placeholder="0.00" />
+                            </div>
+
+                            <span asp-validation-for="Amount"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Expense Date -->
+                        <div class="mb-4">
+                            <label asp-for="ExpenseDate"
+                                   class="form-label fw-semibold"></label>
+
+                            <input asp-for="ExpenseDate"
+                                   type="date"
+                                   asp-format="{0:yyyy-MM-dd}"
+                                   max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                   class="form-control" />
+
+                            <span asp-validation-for="ExpenseDate"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-4">
+                            <label asp-for="PaymentMethod"
+                                   class="form-label fw-semibold"></label>
+
+                            <select asp-for="PaymentMethod"
+                                    asp-items="Model.PaymentMethods"
+                                    class="form-select">
+                                <option value="">
+                                    -- Select Payment Method --
+                                </option>
+                            </select>
+
+                            <span asp-validation-for="PaymentMethod"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-4">
+                            <label asp-for="Description"
+                                   class="form-label fw-semibold"></label>
+
+                            <textarea asp-for="Description"
+                                      class="form-control"
+                                      rows="3"
+                                      maxlength="255"
+                                      placeholder="Enter an optional description..."></textarea>
+
+                            <span asp-validation-for="Description"
+                                  class="text-danger small"></span>
+
+                            <div class="form-text">
+                                Maximum 255 characters.
+                            </div>
+                        </div>
+
+                        <!-- Receipt Management -->
+                        <div class="mb-4">
+                            <h6 class="fw-bold mb-3">
+                                <i class="bi bi-receipt me-2"></i>
+                                Receipt Management
+                            </h6>
+
+                            @if (Model.HasExistingReceipt)
+                            {
+                                <div class="alert alert-info d-flex
+                                                flex-wrap align-items-center
+                                                justify-content-between gap-2">
+
+                                    <div>
+                                        <i class="bi bi-check-circle me-1"></i>
+                                        This expense has an existing receipt.
+                                    </div>
+
+                                    <a asp-controller="Expense"
+                                       asp-action="ViewReceipt"
+                                       asp-route-expenseId="@Model.ExpenseId"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="btn btn-sm btn-outline-primary">
+
+                                        <i class="bi bi-eye me-1"></i>
+                                        View Receipt
+                                    </a>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-light border">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    No receipt is currently attached.
+                                </div>
+                            }
+
+                            <!-- Replace or add receipt -->
+                            <div class="mb-3">
+                                <label asp-for="ReceiptFile"
+                                       class="form-label fw-semibold"></label>
+
+                                <input asp-for="ReceiptFile"
+                                       type="file"
+                                       accept=".jpg,.jpeg,.png,.pdf"
+                                       class="form-control" />
+
+                                <span asp-validation-for="ReceiptFile"
+                                      class="text-danger small"></span>
+
+                                <div class="form-text">
+                                    Optional. JPG, PNG or PDF.
+                                    Maximum file size: 5 MB.
+                                    Uploading a new receipt will replace
+                                    the existing one.
+                                </div>
+                            </div>
+
+                            @if (Model.HasExistingReceipt)
+                            {
+                                <div class="form-check">
+                                    <input asp-for="RemoveReceipt"
+                                           class="form-check-input"
+                                           type="checkbox" />
+
+                                    <label asp-for="RemoveReceipt"
+                                           class="form-check-label">
+                                        Remove existing receipt
+                                    </label>
+                                </div>
+                            }
+
+                            <span asp-validation-for="RemoveReceipt"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex justify-content-end
+                                    flex-wrap gap-2">
+
+                            <a asp-controller="Transaction"
+                               asp-action="Index"
+                               class="btn btn-outline-secondary px-4">
+
+                                <i class="bi bi-x-circle me-1"></i>
+                                Cancel
+                            </a>
+
+                            <button type="submit"
+                                    class="btn text-white px-4"
+                                    style="background-color: #16899a;">
+
+                                <i class="bi bi-check-circle me-1"></i>
+                                Save Changes
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                    <!-- Delete Expense -->
+                    <div class="mt-4 pt-4 border-top">
+
+                        <form asp-controller="Expense"
+                              asp-action="Delete"
+                              method="post"
+                              onsubmit="return confirm('Are you sure you want to permanently delete this expense? This action cannot be undone.');">
+
+                            @Html.AntiForgeryToken()
+
+                            <input type="hidden"
+                                   name="id"
+                                   value="@Model.ExpenseId" />
+
+                            <button type="submit"
+                                    class="btn btn-outline-danger">
+
+                                <i class="bi bi-trash me-1"></i>
+                                Delete Transaction
+
+                            </button>
+
+                        </form>
+
+                        <div class="form-text mt-2">
+                            Deleting this transaction will also remove its
+                            attached receipt, if available.
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            const receiptInput =
+                document.getElementById("ReceiptFile");
+
+            const removeCheckbox =
+                document.getElementById("RemoveReceipt");
+
+            if (!receiptInput || !removeCheckbox) {
+                return;
+            }
+
+            // Uploading a file automatically cancels removal.
+            receiptInput.addEventListener("change", function () {
+                if (receiptInput.files.length > 0) {
+                    removeCheckbox.checked = false;
+                }
+            });
+
+            // Selecting removal clears a selected replacement.
+            removeCheckbox.addEventListener("change", function () {
+                if (removeCheckbox.checked) {
+                    receiptInput.value = "";
+                }
+            });
+        });
+    </script>
+}   

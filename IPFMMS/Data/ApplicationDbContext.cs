@@ -15,6 +15,10 @@ namespace IPFMMS.Data
         public DbSet<EmailOTP> EmailOTPs { get; set; }
         public DbSet<IdCounter> IdCounters { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<Income> Incomes { get; set; }
+        public DbSet<Expense> Expenses { get; set; }
+        public DbSet<IncomeCategory> IncomeCategories { get; set; }
+        public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
 
         protected override void OnModelCreating(
             ModelBuilder modelBuilder)
@@ -81,6 +85,82 @@ namespace IPFMMS.Data
                 entity.HasOne(t => t.User)
                     .WithMany()
                     .HasForeignKey(t => t.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<IncomeCategory>(entity =>
+            {
+                entity.ToTable("IncomeCategories");
+
+                entity.HasKey(c => c.IncomeCategoryId);
+
+                entity.Property(c => c.IncomeCategoryId)
+                    .ValueGeneratedNever();
+
+                entity.HasIndex(c => c.CategoryName)
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<ExpenseCategory>(entity =>
+            {
+                entity.ToTable("ExpenseCategories");
+
+                entity.HasKey(c => c.ExpenseCategoryId);
+
+                entity.Property(c => c.ExpenseCategoryId)
+                    .ValueGeneratedNever();
+
+                entity.HasIndex(c => c.CategoryName)
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<Income>(entity =>
+            {
+                entity.ToTable("Incomes");
+
+                entity.HasKey(i => i.IncomeId);
+
+                entity.Property(i => i.IncomeId)
+                    .ValueGeneratedNever();
+
+                entity.Property(i => i.Amount)
+                    .HasPrecision(12, 2);
+
+                // Each income belongs to one user.
+                entity.HasOne(i => i.User)
+                    .WithMany()
+                    .HasForeignKey(i => i.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Each income belongs to one income category.
+                entity.HasOne<IncomeCategory>()
+                    .WithMany(c => c.Incomes)
+                    .HasForeignKey(i => i.IncomeCategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Expense>(entity =>
+            {
+                entity.ToTable("Expenses");
+
+                entity.HasKey(e => e.ExpenseId);
+
+                entity.Property(e => e.ExpenseId)
+                    .ValueGeneratedNever();
+
+                entity.Property(e => e.Amount)
+                    .HasPrecision(12, 2);
+
+                // Each expense belongs to one user.
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Each expense belongs to one expense category.
+                entity.HasOne<ExpenseCategory>()
+                    .WithMany(c => c.Expenses)
+                    .HasForeignKey(e => e.ExpenseCategoryId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

@@ -62,6 +62,83 @@ namespace IPFMMS.Migrations
                     b.ToTable("EmailOTPs");
                 });
 
+            modelBuilder.Entity("IPFMMS.Models.Expense", b =>
+                {
+                    b.Property<string>("ExpenseId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("ExpenseCategoryId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("ExpenseDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PaymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("ReceiptPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("ExpenseId");
+
+                    b.HasIndex("ExpenseCategoryId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Expenses", (string)null);
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.ExpenseCategory", b =>
+                {
+                    b.Property<string>("ExpenseCategoryId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("CategoryName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.HasKey("ExpenseCategoryId");
+
+                    b.HasIndex("CategoryName")
+                        .IsUnique();
+
+                    b.ToTable("ExpenseCategories", (string)null);
+                });
+
             modelBuilder.Entity("IPFMMS.Models.IdCounter", b =>
                 {
                     b.Property<string>("Prefix")
@@ -74,6 +151,74 @@ namespace IPFMMS.Migrations
                     b.HasKey("Prefix");
 
                     b.ToTable("IdCounters");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.Income", b =>
+                {
+                    b.Property<string>("IncomeId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("IncomeCategoryId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("IncomeDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("IncomeId");
+
+                    b.HasIndex("IncomeCategoryId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Incomes", (string)null);
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.IncomeCategory", b =>
+                {
+                    b.Property<string>("IncomeCategoryId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("CategoryName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.HasKey("IncomeCategoryId");
+
+                    b.HasIndex("CategoryName")
+                        .IsUnique();
+
+                    b.ToTable("IncomeCategories", (string)null);
                 });
 
             modelBuilder.Entity("IPFMMS.Models.PasswordResetToken", b =>
@@ -170,6 +315,40 @@ namespace IPFMMS.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("IPFMMS.Models.Expense", b =>
+                {
+                    b.HasOne("IPFMMS.Models.ExpenseCategory", null)
+                        .WithMany("Expenses")
+                        .HasForeignKey("ExpenseCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IPFMMS.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.Income", b =>
+                {
+                    b.HasOne("IPFMMS.Models.IncomeCategory", null)
+                        .WithMany("Incomes")
+                        .HasForeignKey("IncomeCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IPFMMS.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("IPFMMS.Models.PasswordResetToken", b =>
                 {
                     b.HasOne("IPFMMS.Models.User", "User")
@@ -179,6 +358,16 @@ namespace IPFMMS.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.ExpenseCategory", b =>
+                {
+                    b.Navigation("Expenses");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.IncomeCategory", b =>
+                {
+                    b.Navigation("Incomes");
                 });
 #pragma warning restore 612, 618
         }

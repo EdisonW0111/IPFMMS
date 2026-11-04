@@ -1,0 +1,282 @@
+﻿@model IPFMMS.ViewModels.AllTransactionsViewModel
+
+@{
+    int currentPage = Model.Filter.Page;
+    int totalPages = Model.TotalPages;
+    int pageSize = Model.Filter.PageSize;
+
+    int startRecord = Model.TotalRecords == 0
+        ? 0
+        : ((currentPage - 1) * pageSize) + 1;
+
+    int endRecord = Math.Min(
+        currentPage * pageSize,
+        Model.TotalRecords);
+}
+
+<!-- Transaction Result Summary -->
+<div class="d-flex flex-wrap justify-content-between
+            align-items-center gap-2 mb-3">
+
+    <div class="text-muted small">
+        Showing
+        <strong>@startRecord</strong> -
+        <strong>@endRecord</strong>
+        of
+        <strong>@Model.TotalRecords</strong>
+        transaction(s)
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <label for="transactionPageSize"
+               class="text-muted small mb-0">
+            Show
+        </label>
+
+        <select id="transactionPageSize"
+                class="form-select form-select-sm"
+                style="width: 85px;"
+                aria-label="Transactions per page">
+
+            @foreach (int size in new[] { 10, 25, 50 })
+            {
+                if (pageSize == size)
+                {
+                    <option value="@size" selected>@size</option>
+                }
+                else
+                {
+                    <option value="@size">@size</option>
+                }
+            }
+        </select>
+
+        <span class="text-muted small">per page</span>
+    </div>
+
+</div>
+
+<!-- Transaction History Table -->
+<div class="table-responsive transaction-table-wrapper">
+
+    <table class="table table-hover align-middle transaction-table">
+
+        <thead class="table-light">
+            <tr>
+                <th class="col-date">Date</th>
+                <th class="col-type">Type</th>
+                <th class="col-category">Category</th>
+                <th class="col-description">Description</th>
+                <th class="col-amount text-end">Amount (RM)</th>
+                <th class="col-actions text-center">Actions</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            @if (Model.Transactions.Any())
+            {
+                foreach (var transaction in Model.Transactions)
+                {
+                    bool isIncome =
+                        transaction.TransactionType == "Income";
+
+                    <tr>
+                        <!-- Date -->
+                        <td class="transaction-date" data-label="Date">
+                            @transaction.TransactionDate.ToString("dd MMM yyyy")
+                        </td>
+
+                        <!-- Transaction Type -->
+                        <td>
+                            @if (isIncome)
+                            {
+                                <span class="badge bg-success-subtle
+                                             text-success border
+                                             border-success-subtle" data-label="Type">
+                                    Income
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-danger-subtle
+                                             text-danger border
+                                             border-danger-subtle" data-label="Type">
+                                    Expense
+                                </span>
+                            }
+                        </td>
+
+                        <!-- Category -->
+                        <td class="transaction-category" data-label="Category">
+                            @transaction.CategoryName
+                        </td>
+
+                        <!-- Description -->
+                        <td class="transaction-description text-muted" title="@transaction.Description" data-label="Description">
+                            @(string.IsNullOrWhiteSpace(
+                                transaction.Description)
+                                ? "-"
+                                : transaction.Description)
+                        </td>
+
+                        <!-- Amount -->
+                        <td class="transaction-amount text-end fw-semibold
+                                   @(isIncome
+                                       ? "text-success"
+                                       : "text-danger")" data-label="Amount">
+
+                            @(isIncome ? "+" : "-")RM
+                            @transaction.Amount.ToString("N2")
+
+                        </td>
+
+                        <!-- Actions -->
+                        <td class="text-center" data-label="Actions">
+
+                            <div class="transaction-actions">
+
+                                @if (isIncome)
+                                {
+                                    <!-- Edit Income -->
+                                    <a asp-controller="Income"
+                                       asp-action="Edit"
+                                       asp-route-id="@transaction.TransactionId"
+                                       class="btn btn-sm btn-outline-primary transaction-action-btn"
+                                       title="Edit Income">
+
+                                        <i class="bi bi-pencil-square me-1"></i>
+                                        Edit
+                                    </a>
+                                }
+                                else
+                                {
+                                    <!-- Edit Expense -->
+                                    <a asp-controller="Expense"
+                                       asp-action="Edit"
+                                       asp-route-id="@transaction.TransactionId"
+                                       class="btn btn-sm btn-outline-primary transaction-action-btn"
+                                       title="Edit Expense">
+
+                                        <i class="bi bi-pencil-square me-1"></i>
+                                        Edit
+                                    </a>
+
+                                    <!-- View Receipt -->
+                                    @if (transaction.HasReceipt)
+                                    {
+                                        <a asp-controller="Expense"
+                                           asp-action="ViewReceipt"
+                                           asp-route-expenseId="@transaction.TransactionId"
+                                           target="_blank"
+                                           rel="noopener noreferrer"
+                                           class="btn btn-sm btn-outline-secondary transaction-action-btn"
+                                           title="View Receipt">
+
+                                            <i class="bi bi-receipt me-1"></i>
+                                            View Receipt
+                                        </a>
+                                    }
+                                }
+
+                            </div>
+
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="6"
+                        class="text-center py-5">
+
+                        <i class="bi bi-search fs-1 text-muted"></i>
+
+                        <h6 class="fw-semibold mt-3">
+                            No matching transactions
+                        </h6>
+
+                        <p class="text-muted mb-0">
+                            Try changing your search or filter criteria.
+                        </p>
+
+                    </td>
+                </tr>
+            }
+
+        </tbody>
+    </table>
+
+</div>
+
+<!-- Pagination -->
+@if (totalPages > 1)
+{
+    <nav aria-label="Transaction pagination">
+
+        <ul class="pagination pagination-sm
+                   justify-content-end flex-wrap gap-1 mb-0">
+
+            <!-- Previous -->
+            <li class="page-item
+                       @(!Model.HasPreviousPage ? "disabled" : "")">
+
+                <button type="button"
+                        class="page-link transaction-page"
+                        data-page="@(currentPage - 1)"
+                        disabled="@(!Model.HasPreviousPage)">
+
+                    <i class="bi bi-chevron-left"></i>
+                    Previous
+
+                </button>
+            </li>
+
+            @{
+                int startPage = Math.Max(1, currentPage - 2);
+                int endPage = Math.Min(
+                    totalPages,
+                    currentPage + 2);
+            }
+
+            <!-- Page Numbers -->
+            @for (int pageNumber = startPage;
+                  pageNumber <= endPage;
+                  pageNumber++)
+            {
+                int page = pageNumber;
+
+                <li class="page-item
+                           @(page == currentPage ? "active" : "")">
+
+                    <button type="button"
+                            class="page-link transaction-page"
+                            data-page="@(page)"
+                            aria-current="@(page == currentPage ? "page" : null)">
+
+                        @(page)
+
+                    </button>
+
+                </li>
+            }
+
+            <!-- Next -->
+            <li class="page-item
+                       @(!Model.HasNextPage ? "disabled" : "")">
+
+                <button type="button"
+                        class="page-link transaction-page"
+                        data-page="@(currentPage + 1)"
+                        disabled="@(!Model.HasNextPage)">
+
+                    Next
+                    <i class="bi bi-chevron-right"></i>
+
+                </button>
+            </li>
+
+        </ul>
+    </nav>
+}

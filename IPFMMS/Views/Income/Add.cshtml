@@ -1,0 +1,140 @@
+﻿@model IPFMMS.ViewModels.AddIncomeViewModel
+
+@{
+    ViewData["Title"] = "Add Income";
+    Layout = "_DashboardLayout";
+}
+
+<div class="container-fluid py-4">
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-7">
+
+            <!-- Page Header -->
+            <div class="mb-4">
+                <h2 class="fw-bold mb-1">Add Income</h2>
+                <p class="text-muted mb-0">
+                    Record your income to keep track of
+                    your financial activities.
+                </p>
+            </div>
+
+            <!-- Income Form Card -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4 p-md-5">
+
+                    <form asp-controller="Income"
+                          asp-action="Add"
+                          method="post">
+
+                        @Html.AntiForgeryToken()
+
+                        <div asp-validation-summary="ModelOnly"
+                             class="text-danger mb-3"></div>
+
+                        <!-- Income Category -->
+                        <div class="mb-4">
+                            <label asp-for="IncomeCategoryId"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <select asp-for="IncomeCategoryId"
+                                    asp-items="Model.IncomeCategories"
+                                    class="form-select">
+                                <option value="">
+                                    -- Select Income Category --
+                                </option>
+                            </select>
+
+                            <span asp-validation-for="IncomeCategoryId"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="mb-4">
+                            <label asp-for="Amount"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <div class="input-group">
+                                <span class="input-group-text">RM</span>
+
+                                <input asp-for="Amount"
+                                       type="number"
+                                       min="0.01"
+                                       max="999999999.99"
+                                       step="0.01"
+                                       class="form-control"
+                                       placeholder="0.00" />
+                            </div>
+
+                            <span asp-validation-for="Amount"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Income Date -->
+                        <div class="mb-4">
+                            <label asp-for="IncomeDate"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <input asp-for="IncomeDate"
+                                   type="date"
+                                   max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                                   class="form-control" />
+
+                            <span asp-validation-for="IncomeDate"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-4">
+                            <label asp-for="Description"
+                                   class="form-label fw-semibold">
+                            </label>
+
+                            <textarea asp-for="Description"
+                                      class="form-control"
+                                      rows="4"
+                                      maxlength="255"
+                                      placeholder="Enter an optional description..."></textarea>
+
+                            <span asp-validation-for="Description"
+                                  class="text-danger small"></span>
+
+                            <div class="form-text">
+                                Maximum 255 characters.
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-end gap-2">
+
+                            <a asp-controller="Transaction"
+                               asp-action="Index"
+                               class="btn btn-outline-secondary px-4">
+                                Cancel
+                            </a>
+
+                            <button type="submit"
+                                    class="btn text-white px-4"
+                                    style="background-color: #16899a;">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                Add Income
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

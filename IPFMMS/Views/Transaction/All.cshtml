@@ -1,0 +1,361 @@
+﻿@model IPFMMS.ViewModels.AllTransactionsViewModel
+
+@{
+    ViewData["Title"] = "All Transactions";
+    Layout = "_DashboardLayout";
+}
+
+<div class="container-fluid py-4">
+
+    <!-- Page Heading -->
+    <div class="d-flex flex-wrap justify-content-between
+                align-items-center gap-3 mb-4">
+
+        <div>
+            <h2 class="fw-bold mb-1">All Transactions</h2>
+
+            <p class="text-muted mb-0">
+                Search, filter and review your income
+                and expense records.
+            </p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+
+            <a asp-controller="Transaction"
+               asp-action="Index"
+               class="btn btn-outline-secondary">
+
+                <i class="bi bi-arrow-left me-1"></i>
+                Back to Overview
+            </a>
+
+            <a asp-controller="Income"
+               asp-action="Add"
+               class="btn text-white"
+               style="background-color: #16899a;">
+
+                <i class="bi bi-plus-circle me-1"></i>
+                Add Income
+            </a>
+
+            <a asp-controller="Expense"
+               asp-action="Add"
+               class="btn btn-outline-danger">
+
+                <i class="bi bi-dash-circle me-1"></i>
+                Add Expense
+            </a>
+
+        </div>
+    </div>
+
+    <!-- Transaction Filters -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+
+        <div class="card-body p-4">
+
+            <div class="d-flex align-items-center gap-2 mb-4">
+                <i class="bi bi-funnel fs-5"
+                   style="color: #16899a;"></i>
+
+                <h5 class="fw-bold mb-0">
+                    Filter Transactions
+                </h5>
+            </div>
+
+            <form id="transactionFilterForm"
+                  method="get"
+                  asp-controller="Transaction"
+                  asp-action="Filter">
+
+                <!-- Search -->
+                <div class="row g-3 mb-3">
+
+                    <div class="col-12">
+
+                        <label for="filterSearch"
+                               class="form-label fw-semibold">
+                            Search Transactions
+                        </label>
+
+                        <div class="input-group">
+
+                            <span class="input-group-text">
+                                <i class="bi bi-search"></i>
+                            </span>
+
+                            <input type="search"
+                                   id="filterSearch"
+                                   name="Search"
+                                   class="form-control"
+                                   maxlength="100"
+                                   placeholder="Search by transaction ID, category or description..." />
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Type, Category, Sort -->
+                <div class="row g-3 mb-3">
+
+                    <div class="col-12 col-md-4">
+
+                        <label for="filterType"
+                               class="form-label fw-semibold">
+                            Transaction Type
+                        </label>
+
+                        <select id="filterType"
+                                name="TransactionType"
+                                class="form-select">
+
+                            @foreach (var type in Model.TransactionTypes)
+                            {
+                                <option value="@type.Value">
+                                    @type.Text
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-12 col-md-4">
+
+                        <label for="filterCategory"
+                               class="form-label fw-semibold">
+                            Category
+                        </label>
+
+                        <select id="filterCategory"
+                                name="CategoryId"
+                                class="form-select">
+
+                            @foreach (var category in Model.Categories)
+                            {
+                                string categoryType = "All";
+
+                                if (category.Text.StartsWith("Income - "))
+                                {
+                                    categoryType = "Income";
+                                }
+                                else if (category.Text.StartsWith("Expense - "))
+                                {
+                                    categoryType = "Expense";
+                                }
+
+                                <option value="@category.Value"
+                                        data-type="@categoryType">
+                                    @category.Text
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+
+                    <div class="col-12 col-md-4">
+
+                        <label for="filterSort"
+                               class="form-label fw-semibold">
+                            Sort By
+                        </label>
+
+                        <select id="filterSort"
+                                name="SortBy"
+                                class="form-select">
+
+                            @foreach (var option in Model.SortOptions)
+                            {
+                                <option value="@option.Value">
+                                    @option.Text
+                                </option>
+                            }
+
+                        </select>
+
+                    </div>
+                </div>
+
+                <!-- Date Range -->
+                <div class="row g-3 mb-3">
+
+                    <div class="col-12 col-md-6">
+
+                        <label for="filterStartDate"
+                               class="form-label fw-semibold">
+                            Start Date
+                        </label>
+
+                        <input type="date"
+                               id="filterStartDate"
+                               name="StartDate"
+                               class="form-control" />
+
+                    </div>
+
+                    <div class="col-12 col-md-6">
+
+                        <label for="filterEndDate"
+                               class="form-label fw-semibold">
+                            End Date
+                        </label>
+
+                        <input type="date"
+                               id="filterEndDate"
+                               name="EndDate"
+                               class="form-control" />
+
+                    </div>
+                </div>
+
+                <!-- Amount Range -->
+                <div class="row g-3 mb-4">
+
+                    <div class="col-12 col-md-6">
+
+                        <label for="filterMinAmount"
+                               class="form-label fw-semibold">
+                            Minimum Amount (RM)
+                        </label>
+
+                        <input type="number"
+                               id="filterMinAmount"
+                               name="MinAmount"
+                               class="form-control"
+                               min="0"
+                               max="999999999.99"
+                               step="0.01"
+                               placeholder="0.00" />
+
+                    </div>
+
+                    <div class="col-12 col-md-6">
+
+                        <label for="filterMaxAmount"
+                               class="form-label fw-semibold">
+                            Maximum Amount (RM)
+                        </label>
+
+                        <input type="number"
+                               id="filterMaxAmount"
+                               name="MaxAmount"
+                               class="form-control"
+                               min="0"
+                               max="999999999.99"
+                               step="0.01"
+                               placeholder="No limit" />
+
+                    </div>
+                </div>
+
+                <!-- Hidden pagination fields -->
+                <input type="hidden"
+                       id="filterPage"
+                       name="Page"
+                       value="1" />
+
+                <input type="hidden"
+                       id="filterPageSize"
+                       name="PageSize"
+                       value="10" />
+
+                <!-- Filter Buttons -->
+                <div class="d-flex justify-content-end
+                            flex-wrap gap-2">
+
+                    <button type="button"
+                            id="resetTransactionFilters"
+                            class="btn btn-outline-secondary px-4">
+
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>
+                        Reset Filters
+                    </button>
+
+                    <button type="submit"
+                            class="btn text-white px-4"
+                            style="background-color: #16899a;">
+
+                        <i class="bi bi-search me-1"></i>
+                        Apply Filters
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+    <!-- Transaction Results -->
+    <div class="card border-0 shadow-sm rounded-4">
+
+        <div class="card-body p-4">
+
+            <div class="d-flex flex-wrap
+                        justify-content-between
+                        align-items-center gap-2 mb-4">
+
+                <h5 class="fw-bold mb-0">
+                    Transaction History
+                </h5>
+
+                <span class="badge bg-light text-dark border">
+                    All Transactions
+                </span>
+
+            </div>
+
+            <!-- AJAX loading indicator -->
+            <div id="transactionLoading"
+                 class="text-center py-3 d-none"
+                 role="status"
+                 aria-live="polite">
+
+                <div class="spinner-border spinner-border-sm
+                            text-info me-2">
+                </div>
+
+                <span class="text-muted">
+                    Loading transactions...
+                </span>
+
+            </div>
+
+            <!-- AJAX error message -->
+            <div id="transactionError"
+                 class="alert alert-danger d-none"
+                 role="alert">
+
+                Unable to load transactions.
+                Please try again.
+
+            </div>
+
+            <!-- AJAX result container -->
+            <div id="transactionResults"
+                 aria-live="polite">
+
+                <div class="text-center py-5 text-muted">
+
+                    <i class="bi bi-hourglass-split fs-2"></i>
+
+                    <p class="mt-3 mb-0">
+                        Transaction results will appear here.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script src="~/js/transaction-filter.js"
+            asp-append-version="true"></script>
+}

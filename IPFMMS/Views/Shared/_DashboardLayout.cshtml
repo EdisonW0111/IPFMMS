@@ -8,6 +8,11 @@
     bool isFinanceDashboard =
         currentController == "Dashboard" &&
         currentAction == "Finance";
+
+    bool isTransactions =
+    currentController == "Transaction" ||
+    currentController == "Income" ||
+    currentController == "Expense";
 }
 
 <!DOCTYPE html>
@@ -29,105 +34,114 @@
           href="~/css/dashboard-layout.css"
           asp-append-version="true" />
 
+    <link rel="stylesheet"
+          href="~/css/transaction-table.css"
+          asp-append-version="true" />
+
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     <div class="dashboard-wrapper sidebar-initializing" id="dashboardWrapper">
 
         <aside class="dashboard-sidebar" id="dashboardSidebar">
+            <div class="sidebar-scroll">
+                <div class="sidebar-brand">
+                    <a asp-controller="Dashboard"
+                        asp-action="Finance"
+                        class="brand-link">
 
-            <div class="sidebar-brand">
-                <a asp-controller="Dashboard"
-                   asp-action="Finance"
-                   class="brand-link">
+                        <img src="~/images/logo.png"
+                            alt="IPFMMS"
+                            class="sidebar-logo" />
 
-                    <img src="~/images/logo.png"
-                         alt="IPFMMS"
-                         class="sidebar-logo" />
+                        <span class="brand-text">IPFMMS</span>
+                    </a>
+                </div>
 
-                    <span class="brand-text">IPFMMS</span>
-                </a>
+                <nav class="sidebar-nav"
+                    aria-label="Main navigation">
+
+                    <a asp-controller="Dashboard"
+                        asp-action="Finance"
+                        class="sidebar-link @(isFinanceDashboard ? "active" : "")"
+                        title="Dashboard"
+                        aria-current="@(isFinanceDashboard ? "page" : null)">
+                        <i class="bi bi-grid-1x2"></i>
+                        <span class="nav-label">Dashboard</span>
+                    </a>
+
+                    <a asp-controller="Transaction"
+                        asp-action="Index"
+                        class="sidebar-link @(isTransactions ? "active" : "")"
+                        title="Transactions"
+                        aria-current="@(isTransactions ? "page" : null)">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <span class="nav-label">Transactions</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Budgets & Savings">
+                        <i class="bi bi-wallet2"></i>
+                        <span class="nav-label">Budgets &amp; Savings</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Analytics & Prediction">
+                        <i class="bi bi-bar-chart-line"></i>
+                        <span class="nav-label">Analytics &amp; Prediction</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Routine Bills">
+                        <i class="bi bi-calendar-check"></i>
+                        <span class="nav-label">Routine Bills</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Debt Management">
+                        <i class="bi bi-credit-card"></i>
+                        <span class="nav-label">Debt Management</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Shared Finance">
+                        <i class="bi bi-people"></i>
+                        <span class="nav-label">Shared Finance</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Parental Monitoring">
+                        <i class="bi bi-person-heart"></i>
+                        <span class="nav-label">Parental Monitoring</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Notifications">
+                        <i class="bi bi-bell"></i>
+                        <span class="nav-label">Notifications</span>
+                    </a>
+
+                    <a href="#" class="sidebar-link"
+                        title="Settings">
+                        <i class="bi bi-gear"></i>
+                        <span class="nav-label">Settings</span>
+                    </a>
+
+                </nav>
             </div>
-
-            <nav class="sidebar-nav"
-                 aria-label="Main navigation">
-
-                <a asp-controller="Dashboard"
-                   asp-action="Finance"
-                   class="sidebar-link @(isFinanceDashboard ? "active" : "")"
-                   title="Dashboard"
-                   aria-current="@(isFinanceDashboard ? "page" : null)">
-                    <i class="bi bi-grid-1x2"></i>
-                    <span class="nav-label">Dashboard</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Transactions">
-                    <i class="bi bi-arrow-left-right"></i>
-                    <span class="nav-label">Transactions</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Budgets & Savings">
-                    <i class="bi bi-wallet2"></i>
-                    <span class="nav-label">Budgets &amp; Savings</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Analytics & Prediction">
-                    <i class="bi bi-bar-chart-line"></i>
-                    <span class="nav-label">Analytics &amp; Prediction</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Routine Bills">
-                    <i class="bi bi-calendar-check"></i>
-                    <span class="nav-label">Routine Bills</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Debt Management">
-                    <i class="bi bi-credit-card"></i>
-                    <span class="nav-label">Debt Management</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Shared Finance">
-                    <i class="bi bi-people"></i>
-                    <span class="nav-label">Shared Finance</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Parental Monitoring">
-                    <i class="bi bi-person-heart"></i>
-                    <span class="nav-label">Parental Monitoring</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Notifications">
-                    <i class="bi bi-bell"></i>
-                    <span class="nav-label">Notifications</span>
-                </a>
-
-                <a href="#" class="sidebar-link"
-                   title="Settings">
-                    <i class="bi bi-gear"></i>
-                    <span class="nav-label">Settings</span>
-                </a>
-
-            </nav>
-
-            <div class="sidebar-bottom">
-                <button type="button"
+            <div class="sidebar-footer">
+                <div class="sidebar-bottom">
+                    <button type="button"
                         id="sidebarToggle"
                         class="sidebar-toggle"
                         aria-label="Collapse sidebar"
                         aria-expanded="true"
                         aria-controls="dashboardSidebar">
 
-                    <i class="bi bi-layout-sidebar-inset"></i>
-                    <span class="nav-label">Collapse Sidebar</span>
-                </button>
+                        <i class="bi bi-layout-sidebar-inset"></i>
+                        <span class="nav-label">Collapse Sidebar</span>
+                    </button>
+                </div>
             </div>
         </aside>
 
