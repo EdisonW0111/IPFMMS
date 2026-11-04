@@ -1,0 +1,108 @@
+@model IPFMMS.ViewModels.AnalyticsViewModel
+@using System.Globalization
+@using System.Text.Json
+@{
+    string chartData = JsonSerializer.Serialize(Model.Months.Select(m => new { label = m.Label, income = m.Income, expenses = m.Expenses }));
+}
+<section class="analytics-overview" data-from="@Model.FromValue" data-to="@Model.ToValue" aria-label="Financial analysis for @Model.PeriodLabel">
+    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+        <h3 class="h5 fw-bold mb-0">@Model.PeriodLabel</h3>
+        <div class="d-flex flex-wrap gap-2 analytics-controls">
+            <a asp-action="ExportPdf" asp-route-from="@Model.FromValue" asp-route-to="@Model.ToValue" class="btn btn-sm btn-outline-primary">Download PDF report</a>
+            <a asp-action="Export" asp-route-from="@Model.FromValue" asp-route-to="@Model.ToValue" class="btn btn-sm btn-outline-primary">Download CSV report</a>
+            <button type="button" data-print-analytics class="btn btn-sm btn-outline-secondary">Print report</button>
+        </div>
+    </div>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Income</div><h3 class="fw-bold text-success mb-0">RM @Model.TotalIncome.ToString("N2")</h3>
+        </div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Expenses</div><h3 class="fw-bold text-danger mb-0">RM @Model.TotalExpenses.ToString("N2")</h3>
+        </div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Net cash flow</div><h3 class="fw-bold @(Model.NetCashFlow < 0m ? "text-danger" : "text-success") mb-1">RM @Model.NetCashFlow.ToString("N2")</h3>
+            <div class="text-muted small">Income minus expenses, before savings.</div>
+        </div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Allocated to savings</div><h3 class="fw-bold mb-1">RM @Model.TotalSavings.ToString("N2")</h3>
+            <div class="text-muted small">Recorded manual and automatic contributions.</div>
+        </div></div></div>
+    </div>
+    <p class="text-muted small">Period remainder after savings: <strong>RM @Model.AfterSavings.ToString("N2")</strong>.
+        This excludes your opening balance. All amounts are MYR; savings allocations are separate from expenses.</p>
+    @if (Model.TotalIncome == 0m && Model.TotalExpenses == 0m && Model.TotalSavings == 0m)
+    {
+        <div class="alert alert-info" role="status">No income, expenses or savings contributions were recorded for this period. Choose another period or add a transaction to start your analysis.</div>
+    }
+    <script type="application/json" class="analytics-chart-data">@Html.Raw(chartData)</script>
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-xl-7"><article class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Income versus expenses</h3>
+            <p class="text-muted small">Compare recorded totals month by month. Months without records are shown as zero.</p>
+            <div class="analytics-legend"><span><i style="background:#16899a"></i>Income</span><span><i style="background:#dc5666"></i>Expenses</span></div>
+            <div data-analytics-chart="comparison" class="analytics-chart"></div>
+            <noscript><p>See the monthly figures table below for all chart values.</p></noscript>
+        </div></article></div>
+        <div class="col-12 col-xl-5"><article class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Spending by category</h3>
+            @if (Model.Categories.Count == 0) { <p class="text-muted py-4">No expenses recorded in this period.</p> }
+            else
+            {
+                <p class="text-muted small">Share of all recorded expenses in this period.</p>
+                @foreach (var category in Model.Categories)
+                {
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between gap-3 small mb-1"><span class="text-break">@category.Name</span><strong class="text-nowrap">RM @category.Amount.ToString("N2")</strong></div>
+                        <div class="progress" style="height:8px" role="progressbar" aria-label="@category.Name share of expenses" aria-valuenow="@category.Share.ToString("0.##", CultureInfo.InvariantCulture)" aria-valuemin="0" aria-valuemax="100">
+                            <div class="progress-bar" style="background:#16899a;width:@category.Share.ToString("0.##", CultureInfo.InvariantCulture)%"></div>
+                        </div>
+                        <div class="text-muted small mt-1">@category.Share.ToString("0.##")% · @category.Count transaction(s)</div>
+                    </div>
+                }
+            }
+        </div></article></div>
+        <div class="col-12"><article class="card border-0 shadow-sm"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Monthly spending trend</h3><p class="text-muted small">Actual expenses for the selected months.</p>
+            <div data-analytics-chart="trend" class="analytics-chart"></div>
+        </div></article></div>
+    </div>
+    <article class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Monthly figures</h3>
+        <p class="text-muted small d-sm-none">Scroll tables sideways to see all columns.</p>
+        <div class="table-responsive"><table class="table align-middle mb-0">
+            <caption class="visually-hidden">Values used in the income, expense and trend charts, in MYR</caption>
+            <thead class="table-light"><tr><th>Month</th><th class="text-end">Income</th><th class="text-end">Expenses</th><th class="text-end">Savings allocations</th><th class="text-end">Net before savings</th></tr></thead>
+            <tbody>@foreach (var month in Model.Months)
+            {
+                <tr><th scope="row" class="fw-normal text-nowrap">@month.Label</th><td class="text-end">@month.Income.ToString("N2")</td><td class="text-end">@month.Expenses.ToString("N2")</td><td class="text-end">@month.Savings.ToString("N2")</td><td class="text-end">@month.Net.ToString("N2")</td></tr>
+            }</tbody>
+        </table></div>
+    </div></article>
+    <article class="card border-0 shadow-sm"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Budget utilization</h3>
+        <p class="text-muted small">Saved monthly budgets only. Percentage limits use each budget month's income.
+            Spending without a matching category budget: <strong>RM @Model.UnbudgetedSpending.ToString("N2")</strong>.
+            Viewing analytics does not create future repeating budgets.</p>
+        @if (Model.Budgets.Count == 0) { <p class="text-muted py-3 mb-0">No saved budgets in this period. Create budgets from the Budgets page to compare limits with spending.</p> }
+        else
+        {
+            <div class="d-flex flex-wrap gap-4 small mb-3"><span>Total limits: <strong>RM @Model.TotalBudgetLimit.ToString("N2")</strong></span><span>Spent in budgeted categories: <strong>RM @Model.SpendingInBudgetedCategories.ToString("N2")</strong></span></div>
+            <div class="table-responsive"><table class="table align-middle mb-0">
+                <caption class="visually-hidden">Monthly category budget limits and utilization, in MYR</caption>
+                <thead class="table-light"><tr><th>Month</th><th>Category</th><th class="text-end">Limit</th><th class="text-end">Spent</th><th class="text-end">Remaining</th><th>Usage</th><th>Status</th></tr></thead>
+                <tbody>@foreach (var budget in Model.Budgets)
+                {
+                    var b = budget.Summary;
+                    string color = b.Status == "Overspent" ? "danger" : b.Status is "Warning" or "Limit reached" ? "warning" : b.BudgetLimit <= 0 ? "secondary" : "success";
+                    <tr><td class="text-nowrap">@budget.Month.ToString("MMM yyyy")</td><th scope="row" class="fw-normal">@b.CategoryName</th>
+                        <td class="text-end">@b.BudgetLimit.ToString("N2")</td><td class="text-end">@b.AmountSpent.ToString("N2")</td><td class="text-end @(b.Remaining < 0 ? "text-danger" : "")">@b.Remaining.ToString("N2")</td>
+                        <td style="min-width:110px"><span class="small">@(b.Utilization.HasValue ? b.Utilization.Value.ToString("0.##") + "%" : "N/A")</span>
+                            <div class="progress" style="height:6px"><div class="progress-bar bg-@color" style="width:@b.Progress.ToString("0.##", CultureInfo.InvariantCulture)%"></div></div></td>
+                        <td><span class="badge bg-@color @(color == "warning" ? "text-dark" : "")">@b.Status</span></td></tr>
+                }</tbody>
+            </table></div>
+        }
+    </div></article>
+</section>

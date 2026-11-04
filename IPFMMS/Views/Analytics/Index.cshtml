@@ -1,0 +1,27 @@
+@model IPFMMS.ViewModels.AnalyticsViewModel
+@{
+    ViewData["Title"] = "Spending Analytics";
+    Layout = "_DashboardLayout";
+}
+<link rel="stylesheet" href="~/css/analytics.css" asp-append-version="true" />
+<div class="container-fluid py-4 analytics-page">
+    <div class="mb-4"><h2 class="fw-bold mb-1">Spending Analytics</h2>
+        <p class="text-muted mb-0">Understand your income, spending patterns and budget usage.</p></div>
+    <form asp-action="Index" method="get" id="analyticsFilter" class="card border-0 shadow-sm mb-4 analytics-controls">
+        <div class="card-body d-flex flex-wrap gap-3 align-items-end">
+            <div><label for="analyticsFrom" class="form-label">From month</label>
+                <input type="month" id="analyticsFrom" name="from" value="@Model.FromValue" class="form-control" min="1000-01" max="9998-12" required /></div>
+            <div><label for="analyticsTo" class="form-label">To month</label>
+                <input type="month" id="analyticsTo" name="to" value="@Model.ToValue" class="form-control" min="1000-01" max="9998-12" required /></div>
+            <button class="btn btn-outline-primary" type="submit">Apply period</button>
+            <span class="text-muted small pb-2">Up to 12 months. Changing a month updates the charts automatically.</span>
+        </div>
+    </form>
+    <p id="analyticsLoading" class="text-muted d-none" role="status">Updating analytics...</p>
+    <div id="analyticsError" class="alert alert-danger d-none" role="alert">
+        Unable to load analytics. The previous results are still displayed.
+        <button id="analyticsRetry" type="button" class="btn btn-sm btn-outline-danger ms-2">Try again</button>
+    </div>
+    <div id="analyticsResults" aria-busy="false"><partial name="_Overview" model="Model" /></div>
+</div>
+@section Scripts { <script src="~/js/analytics.js" asp-append-version="true"></script> }
