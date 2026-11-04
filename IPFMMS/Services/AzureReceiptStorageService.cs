@@ -15,12 +15,14 @@ namespace IPFMMS.Services
             IConfiguration configuration)
         {
             string connectionString =
-                configuration["AzureBlobStorage:ConnectionString"]
+                configuration["ReceiptStorage:ConnectionString"]
+                ?? configuration["AzureBlobStorage:ConnectionString"]
                 ?? throw new InvalidOperationException(
                     "Azure Blob Storage connection string is missing.");
 
             string containerName =
-                configuration["AzureBlobStorage:ContainerName"]
+                configuration["ReceiptStorage:ContainerName"]
+                ?? configuration["AzureBlobStorage:ContainerName"]
                 ?? "receipts";
 
             _container = new BlobContainerClient(
