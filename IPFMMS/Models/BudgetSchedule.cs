@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace IPFMMS.Models
@@ -32,6 +32,7 @@ namespace IPFMMS.Models
         // Explicit opt-in. Disabling a schedule preserves its settings and
         // prevents rollover from falling back to older Budget records.
         public bool IsActive { get; set; }
+        public int SeriesVersion { get; set; } = 1;
 
         [Required]
         [StringLength(20)]

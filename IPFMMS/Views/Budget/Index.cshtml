@@ -1,4 +1,4 @@
-﻿@model IPFMMS.ViewModels.BudgetIndexViewModel
+@model IPFMMS.ViewModels.BudgetIndexViewModel
 @using System.Globalization
 
 @{
@@ -29,14 +29,10 @@
         <div>
             <label for="month" class="form-label fw-semibold">Budget month</label>
             <input type="month" id="month" name="month" value="@selectedMonth"
-                   min="1000-01" max="9998-12" required class="form-control" aria-describedby="rolloverLimitHelp" />
+                   min="1000-01" max="9998-12" required class="form-control" />
         </div>
         <noscript><button type="submit" class="btn btn-outline-secondary">View month</button></noscript>
     </form>
-    <p id="rolloverLimitHelp" class="form-text mb-4">
-        Automatic repetition is available up to 12 months ahead, through @Model.RolloverLimitMonth.ToString("MMMM yyyy").
-        Later months show previously saved budgets only.
-    </p>
     <p id="budgetLoading" class="text-muted d-none" role="status">Loading budgets...</p>
     <div id="budgetError" class="alert alert-danger d-none" role="alert">
         Unable to load budgets. Your displayed results have not changed. Please try again or refresh the page.

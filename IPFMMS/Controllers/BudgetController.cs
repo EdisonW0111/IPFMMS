@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Data;
 using MySqlConnector;
@@ -89,7 +89,7 @@ namespace IPFMMS.Controllers
             // Load category schedules once, always scoped to the signed-in owner.
             var schedules = await _context.BudgetSchedules.AsNoTracking()
                 .Where(s => s.UserId == userId)
-                .Select(s => new { s.ExpenseCategoryId, s.IsActive, s.EndMonth })
+                .Select(s => new { s.ExpenseCategoryId, s.IsActive, s.EndMonth, s.NextBudgetMonth, CategoryActive = s.ExpenseCategory!.IsActive })
                 .ToDictionaryAsync(s => s.ExpenseCategoryId);
 
             var currentMonth = BudgetRolloverPolicy.LatestMonth.AddMonths(-BudgetRolloverPolicy.FutureMonths);
@@ -97,6 +97,9 @@ namespace IPFMMS.Controllers
             var model = new BudgetIndexViewModel
             {
                 RolloverLimitMonth = BudgetRolloverPolicy.LatestMonth,
+                ShowRolloverLimitNotice = selectedMonth > BudgetRolloverPolicy.LatestMonth &&
+                    schedules.Values.Any(s => s.IsActive && s.CategoryActive && s.NextBudgetMonth <= selectedMonth &&
+                        (!s.EndMonth.HasValue || s.EndMonth >= selectedMonth)),
                 BudgetMonth = selectedMonth,
                 MonthlyIncome = monthlyIncome,
                 MonthlyExpenses = spendingByCategory.Values.Sum(),
@@ -136,8 +139,10 @@ namespace IPFMMS.Controllers
                 parsedMonth.Year < 1000 || parsedMonth.Year > 9998)
                 return BadRequest("Please select a valid budget month.");
 
-            var warnings = await _rollover.EnsureMonthAsync(userId,
-                new DateTime(parsedMonth.Year, parsedMonth.Month, 1));
+            var selectedMonth = new DateTime(parsedMonth.Year, parsedMonth.Month, 1);
+            // Browsing beyond the generation window is informational, not a failed rollover.
+            var warnings = selectedMonth > BudgetRolloverPolicy.LatestMonth
+                ? new List<string>() : await _rollover.EnsureMonthAsync(userId, selectedMonth);
             var result = await Index(month);
             var model = (result as ViewResult)?.Model as BudgetIndexViewModel
                 ?? (result as PartialViewResult)?.Model as BudgetIndexViewModel;
@@ -397,6 +402,11 @@ namespace IPFMMS.Controllers
                         _context.BudgetSchedules.Add(schedule);
                     }
 
+                    // A new activation gets its own series, even though the category schedule is reused.
+                    if (_context.Entry(schedule).State != EntityState.Added)
+                        schedule.SeriesVersion++;
+                    budget.BudgetScheduleId = schedule.BudgetScheduleId;
+                    budget.RepeatSeriesVersion = schedule.SeriesVersion;
                     // Re-enable a disabled schedule without creating a second one.
                     schedule.BudgetType = budget.BudgetType;
                     schedule.BudgetAmount = budget.BudgetAmount;
@@ -586,6 +596,11 @@ namespace IPFMMS.Controllers
                     };
                     _context.BudgetSchedules.Add(schedule);
                 }
+                if (_context.Entry(schedule).State != EntityState.Added &&
+                    (!schedule.IsActive || (schedule.EndMonth.HasValue && schedule.EndMonth < budget.BudgetMonth)))
+                    schedule.SeriesVersion++;
+                budget.BudgetScheduleId = schedule.BudgetScheduleId;
+                budget.RepeatSeriesVersion = schedule.SeriesVersion;
                 schedule.BudgetType = budget.BudgetType;
                 schedule.BudgetAmount = budget.BudgetAmount;
                 schedule.BudgetPercentage = budget.BudgetPercentage;
@@ -614,45 +629,83 @@ namespace IPFMMS.Controllers
             var budget = await _context.Budgets.AsNoTracking().Include(b => b.ExpenseCategory)
                 .SingleOrDefaultAsync(b => b.BudgetId == id && b.UserId == userId);
             if (budget == null) return NotFound();
-            return View(new DeleteBudgetViewModel
+            var model = new DeleteBudgetViewModel
             {
                 BudgetId = budget.BudgetId, CategoryName = budget.ExpenseCategory!.CategoryName,
                 BudgetMonth = budget.BudgetMonth, BudgetType = budget.BudgetType,
-                BudgetAmount = budget.BudgetAmount, BudgetPercentage = budget.BudgetPercentage
-            });
+                BudgetAmount = budget.BudgetAmount, BudgetPercentage = budget.BudgetPercentage,
+                CanDeleteSeries = budget.BudgetScheduleId != null && budget.RepeatSeriesVersion.HasValue
+            };
+            model.FutureSeriesCount = model.CanDeleteSeries ? await _context.Budgets.CountAsync(b =>
+                b.UserId == userId && b.ExpenseCategoryId == budget.ExpenseCategoryId && b.BudgetMonth > budget.BudgetMonth &&
+                b.BudgetScheduleId == budget.BudgetScheduleId && b.RepeatSeriesVersion == budget.RepeatSeriesVersion) : 0;
+            model.HasUnlinkedCategoryBudgets = await _context.Budgets.AnyAsync(b => b.UserId == userId &&
+                b.ExpenseCategoryId == budget.ExpenseCategoryId && b.BudgetMonth >= budget.BudgetMonth && b.BudgetScheduleId == null);
+            return View(model);
         }
 
-        [HttpPost]
-        [ActionName("Delete")]
+        [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteConfirmed(string id)
+        public async Task<IActionResult> DeleteConfirmed(string id, string scope = "month")
         {
             string? userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrWhiteSpace(userId)) return Challenge();
+            if (scope is not ("month" or "series")) return BadRequest();
             await using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted);
             if (!await LockBudgetOwnerAsync(userId)) return Challenge();
             var budget = await _context.Budgets.SingleOrDefaultAsync(b => b.BudgetId == id && b.UserId == userId);
             if (budget == null) return NotFound();
             var schedule = await _context.BudgetSchedules.SingleOrDefaultAsync(s =>
                 s.UserId == userId && s.ExpenseCategoryId == budget.ExpenseCategoryId);
-            if (schedule?.IsActive == true && schedule.NextBudgetMonth < budget.BudgetMonth)
+            bool currentSeries = schedule != null && budget.BudgetScheduleId == schedule.BudgetScheduleId &&
+                budget.RepeatSeriesVersion == schedule.SeriesVersion;
+            if (scope == "series" && (budget.BudgetScheduleId == null || !budget.RepeatSeriesVersion.HasValue))
             {
-                var historyWarnings = await _rollover.EnsureThroughMonthInTransactionAsync(
+                await transaction.RollbackAsync();
+                ModelState.AddModelError(string.Empty, "This budget has no repeat-series link. Delete individual months to preserve unrelated budgets.");
+                return await Delete(id);
+            }
+            // Only stopping the currently active series requires backfilling its earlier months.
+            if (scope == "series" && currentSeries && schedule!.IsActive && schedule.NextBudgetMonth < budget.BudgetMonth)
+            {
+                var warnings = await _rollover.EnsureThroughMonthInTransactionAsync(
                     userId, budget.BudgetMonth.AddMonths(-1), budget.ExpenseCategoryId);
-                if (historyWarnings.Count > 0)
+                if (warnings.Count > 0)
                 {
                     await transaction.RollbackAsync();
-                    foreach (var warning in historyWarnings)
-                        ModelState.AddModelError(string.Empty, warning);
-                    ModelState.AddModelError(string.Empty, "The budget was not deleted because earlier repeating budgets could not be preserved. Resolve the reported issue first.");
+                    foreach (var warning in warnings) ModelState.AddModelError(string.Empty, warning);
+                    ModelState.AddModelError(string.Empty, "Nothing was deleted because earlier repeating budgets could not be preserved.");
                     return await Delete(id);
                 }
             }
-            if (schedule != null) schedule.IsActive = false;
-            _context.Budgets.Remove(budget);
+            int count = 1;
+            if (scope == "series")
+            {
+                var series = await _context.Budgets.Where(b => b.UserId == userId &&
+                    b.ExpenseCategoryId == budget.ExpenseCategoryId && b.BudgetMonth >= budget.BudgetMonth &&
+                    b.BudgetScheduleId == budget.BudgetScheduleId && b.RepeatSeriesVersion == budget.RepeatSeriesVersion).ToListAsync();
+                count = series.Count;
+                _context.Budgets.RemoveRange(series);
+                if (currentSeries) schedule!.IsActive = false;
+            }
+            else
+            {
+                // Keep a permanent skip for this series/month, even if Edit rewinds its cursor later.
+                var skipId = budget.BudgetScheduleId ?? (schedule?.IsActive == true ? schedule.BudgetScheduleId : null);
+                var version = budget.RepeatSeriesVersion ?? schedule?.SeriesVersion;
+                if (skipId != null && version.HasValue && !await _context.BudgetRepeatSkips.AnyAsync(s =>
+                    s.BudgetScheduleId == skipId && s.SeriesVersion == version && s.BudgetMonth == budget.BudgetMonth))
+                    _context.BudgetRepeatSkips.Add(new BudgetRepeatSkip
+                    {
+                        BudgetScheduleId = skipId, SeriesVersion = version.Value, BudgetMonth = budget.BudgetMonth
+                    });
+                _context.Budgets.Remove(budget);
+            }
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
-            TempData["SuccessMessage"] = "Selected monthly budget deleted and category repetition stopped. Other saved months were preserved.";
+            TempData["SuccessMessage"] = scope == "series"
+                ? $"Deleted {count} budget(s) from the selected month onward in this series. Past months and unrelated budgets were preserved."
+                : "Selected month's budget deleted. Repeat settings and other months were preserved.";
             return RedirectToAction(nameof(Index), new { month = budget.BudgetMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture) });
         }
 

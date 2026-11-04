@@ -39,6 +39,10 @@ namespace IPFMMS.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<string>("BudgetScheduleId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
                     b.Property<string>("BudgetType")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -56,6 +60,9 @@ namespace IPFMMS.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<int?>("RepeatSeriesVersion")
+                        .HasColumnType("int");
+
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("varchar(20)");
@@ -64,10 +71,29 @@ namespace IPFMMS.Migrations
 
                     b.HasIndex("ExpenseCategoryId");
 
+                    b.HasIndex("BudgetScheduleId", "RepeatSeriesVersion", "BudgetMonth");
+
                     b.HasIndex("UserId", "ExpenseCategoryId", "BudgetMonth")
                         .IsUnique();
 
                     b.ToTable("Budgets");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.BudgetRepeatSkip", b =>
+                {
+                    b.Property<string>("BudgetScheduleId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("SeriesVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("BudgetMonth")
+                        .HasColumnType("date");
+
+                    b.HasKey("BudgetScheduleId", "SeriesVersion", "BudgetMonth");
+
+                    b.ToTable("BudgetRepeatSkips", (string)null);
                 });
 
             modelBuilder.Entity("IPFMMS.Models.BudgetSchedule", b =>
@@ -109,6 +135,11 @@ namespace IPFMMS.Migrations
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
+
+                    b.Property<int>("SeriesVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<string>("UserId")
                         .IsRequired()
@@ -563,6 +594,11 @@ namespace IPFMMS.Migrations
 
             modelBuilder.Entity("IPFMMS.Models.Budget", b =>
                 {
+                    b.HasOne("IPFMMS.Models.BudgetSchedule", "BudgetSchedule")
+                        .WithMany()
+                        .HasForeignKey("BudgetScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("IPFMMS.Models.ExpenseCategory", "ExpenseCategory")
                         .WithMany()
                         .HasForeignKey("ExpenseCategoryId")
@@ -575,9 +611,22 @@ namespace IPFMMS.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("BudgetSchedule");
+
                     b.Navigation("ExpenseCategory");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.BudgetRepeatSkip", b =>
+                {
+                    b.HasOne("IPFMMS.Models.BudgetSchedule", "BudgetSchedule")
+                        .WithMany()
+                        .HasForeignKey("BudgetScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BudgetSchedule");
                 });
 
             modelBuilder.Entity("IPFMMS.Models.BudgetSchedule", b =>

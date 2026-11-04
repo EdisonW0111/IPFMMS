@@ -1,5 +1,14 @@
-﻿@model IPFMMS.ViewModels.BudgetIndexViewModel
+@model IPFMMS.ViewModels.BudgetIndexViewModel
 @using System.Globalization
+
+@if (Model.ShowRolloverLimitNotice)
+{
+    <div class="alert alert-info" role="status">
+        This month is beyond the automatic repeat window, currently through @Model.RolloverLimitMonth.ToString("MMMM yyyy").
+        Your repeat schedule is saved. This month becomes eligible as the window moves forward.
+        Previously saved budgets are still shown below.
+    </div>
+}
 
 @foreach (var warning in Model.RolloverWarnings)
 {

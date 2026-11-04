@@ -1,4 +1,4 @@
-﻿using IPFMMS.Models;
+using IPFMMS.Models;
 
 namespace IPFMMS.Services
 {
@@ -13,13 +13,15 @@ namespace IPFMMS.Services
         }
 
         public static Plan Build(string userId, DateTime month,
-            IEnumerable<BudgetSchedule> schedules, IEnumerable<Budget> budgets)
+            IEnumerable<BudgetSchedule> schedules, IEnumerable<Budget> budgets, IEnumerable<BudgetRepeatSkip>? skippedMonths = null)
         {
             if (string.IsNullOrWhiteSpace(userId)) throw new ArgumentException("An owner is required.");
             if (month.Day != 1 || month.TimeOfDay != TimeSpan.Zero || month.Year < 1000 || month.Year > 9998)
                 throw new ArgumentException("A valid first day of the month is required.");
 
             var plan = new Plan();
+            var skips = (skippedMonths ?? Array.Empty<BudgetRepeatSkip>())
+                .Where(s => s.BudgetMonth == month).Select(s => (s.BudgetScheduleId, s.SeriesVersion)).ToHashSet();
             var existing = budgets.Where(b => b.UserId == userId && b.BudgetMonth == month).ToList();
             var categories = existing.Select(b => b.ExpenseCategoryId).ToHashSet();
             var pending = new List<BudgetSchedule>();
@@ -28,6 +30,11 @@ namespace IPFMMS.Services
                 s.IsActive && s.NextBudgetMonth <= month &&
                 (!s.EndMonth.HasValue || month <= s.EndMonth.Value)).OrderBy(s => s.ExpenseCategoryId))
             {
+                if (skips.Contains((schedule.BudgetScheduleId, schedule.SeriesVersion)))
+                {
+                    plan.SchedulesToAdvance.Add(schedule);
+                    continue;
+                }
                 if (categories.Contains(schedule.ExpenseCategoryId))
                 {
                     // An existing manual budget takes precedence over the schedule.
@@ -72,6 +79,8 @@ namespace IPFMMS.Services
                 if (schedule.BudgetType == "Percentage" && percentageConflict) continue;
                 plan.Budgets.Add(new Budget
                 {
+                    BudgetScheduleId = schedule.BudgetScheduleId,
+                    RepeatSeriesVersion = schedule.SeriesVersion,
                     UserId = userId,
                     ExpenseCategoryId = schedule.ExpenseCategoryId,
                     BudgetMonth = month,

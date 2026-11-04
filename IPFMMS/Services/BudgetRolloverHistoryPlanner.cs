@@ -1,4 +1,4 @@
-﻿using IPFMMS.Models;
+using IPFMMS.Models;
 
 namespace IPFMMS.Services
 {
@@ -13,7 +13,7 @@ namespace IPFMMS.Services
         }
 
         public static Plan Build(string userId, DateTime throughMonth,
-            IEnumerable<BudgetSchedule> schedules, IEnumerable<Budget> budgets)
+            IEnumerable<BudgetSchedule> schedules, IEnumerable<Budget> budgets, IEnumerable<BudgetRepeatSkip>? skippedMonths = null)
         {
             if (string.IsNullOrWhiteSpace(userId)) throw new ArgumentException("An owner is required.");
             if (throughMonth.Year < 1000 || throughMonth.Year > 9998 || throughMonth.Day != 1 || throughMonth.TimeOfDay != TimeSpan.Zero)
@@ -44,7 +44,7 @@ namespace IPFMMS.Services
             for (var month = firstMonth; month <= processingEnd; month = month.AddMonths(1))
             {
                 var existing = months.GetValueOrDefault(month) ?? new List<Budget>();
-                var result = BudgetRolloverPlanner.Build(userId, month, due, existing);
+                var result = BudgetRolloverPlanner.Build(userId, month, due, existing, skippedMonths);
                 plan.Budgets.AddRange(result.Budgets);
                 foreach (var warning in result.Warnings)
                     plan.Warnings.Add($"{month:MMMM yyyy}: {warning}");

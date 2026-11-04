@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -39,6 +39,12 @@ namespace IPFMMS.Models
 
         [StringLength(500)]
         public string? Notes { get; set; }
+
+        // Null on independent and pre-linkage budgets. Never infer series from category alone.
+        [StringLength(20)]
+        public string? BudgetScheduleId { get; set; }
+        public int? RepeatSeriesVersion { get; set; }
+        public BudgetSchedule? BudgetSchedule { get; set; }
 
         // Navigation properties
         [ForeignKey(nameof(UserId))]

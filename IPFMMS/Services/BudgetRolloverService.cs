@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using IPFMMS.Data;
 using IPFMMS.Models;
 using Microsoft.EntityFrameworkCore;
@@ -58,7 +58,10 @@ namespace IPFMMS.Services
             var existing = await _context.Budgets.AsNoTracking()
                 .Where(b => b.UserId == userId && b.BudgetMonth >= firstMonth && b.BudgetMonth <= month)
                 .ToListAsync();
-            var history = BudgetRolloverHistoryPlanner.Build(userId, month, schedules, existing);
+            var ids = schedules.Select(s => s.BudgetScheduleId).ToList();
+            var skips = await _context.BudgetRepeatSkips.AsNoTracking()
+                .Where(s => ids.Contains(s.BudgetScheduleId) && s.BudgetMonth >= firstMonth && s.BudgetMonth <= month).ToListAsync();
+            var history = BudgetRolloverHistoryPlanner.Build(userId, month, schedules, existing, skips);
 
             foreach (var budget in history.Budgets)
             {

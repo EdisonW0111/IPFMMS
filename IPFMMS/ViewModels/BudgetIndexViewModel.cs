@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -8,6 +8,7 @@ namespace IPFMMS.ViewModels
     public class BudgetIndexViewModel
     {
         public List<string> RolloverWarnings { get; set; } = new();
+        public bool ShowRolloverLimitNotice { get; set; }
         public DateTime RolloverLimitMonth { get; set; }
         public DateTime BudgetMonth { get; set; }
         public decimal MonthlyIncome { get; set; }

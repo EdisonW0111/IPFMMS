@@ -1,4 +1,4 @@
-﻿using IPFMMS.Models;
+using IPFMMS.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace IPFMMS.Data
@@ -19,6 +19,7 @@ namespace IPFMMS.Data
         public DbSet<Expense> Expenses { get; set; }
         public DbSet<IncomeCategory> IncomeCategories { get; set; }
         public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
+        public DbSet<BudgetRepeatSkip> BudgetRepeatSkips { get; set; }
         public DbSet<Budget> Budgets { get; set; }
         public DbSet<BudgetSchedule> BudgetSchedules { get; set; }
         public DbSet<SavingsAutomaticAttempt> SavingsAutomaticAttempts { get; set; }
@@ -175,6 +176,12 @@ namespace IPFMMS.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
+            modelBuilder.Entity<BudgetRepeatSkip>(entity =>
+            {
+                entity.ToTable("BudgetRepeatSkips");
+                entity.HasKey(s => new { s.BudgetScheduleId, s.SeriesVersion, s.BudgetMonth });
+                entity.HasOne(s => s.BudgetSchedule).WithMany().HasForeignKey(s => s.BudgetScheduleId).OnDelete(DeleteBehavior.Restrict);
+            });
             modelBuilder.Entity<Budget>(entity =>
             {
                 entity.HasKey(b => b.BudgetId);
@@ -204,6 +211,10 @@ namespace IPFMMS.Data
                     .HasPrecision(5, 2);
             });
 
+            modelBuilder.Entity<Budget>().HasOne(b => b.BudgetSchedule).WithMany()
+                .HasForeignKey(b => b.BudgetScheduleId).OnDelete(DeleteBehavior.Restrict);
+            modelBuilder.Entity<Budget>().HasIndex(b => new { b.BudgetScheduleId, b.RepeatSeriesVersion, b.BudgetMonth });
+            modelBuilder.Entity<BudgetSchedule>().Property(s => s.SeriesVersion).HasDefaultValue(1);
             modelBuilder.Entity<BudgetSchedule>(entity =>
             {
                 entity.ToTable("BudgetSchedules");

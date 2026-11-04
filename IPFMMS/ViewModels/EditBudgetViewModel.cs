@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace IPFMMS.ViewModels
 {
@@ -45,6 +45,9 @@ namespace IPFMMS.ViewModels
 
     public class DeleteBudgetViewModel
     {
+        public bool CanDeleteSeries { get; set; }
+        public int FutureSeriesCount { get; set; }
+        public bool HasUnlinkedCategoryBudgets { get; set; }
         public string BudgetId { get; set; } = string.Empty;
         public string CategoryName { get; set; } = string.Empty;
         public DateTime BudgetMonth { get; set; }

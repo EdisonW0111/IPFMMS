@@ -1,4 +1,4 @@
-﻿@model IPFMMS.ViewModels.DeleteBudgetViewModel
+@model IPFMMS.ViewModels.DeleteBudgetViewModel
 @using System.Globalization
 @{
     ViewData["Title"] = "Delete Budget";
@@ -20,16 +20,33 @@
                 }
             </p>
             <div class="alert alert-warning" role="alert">
-                This permanently deletes the selected month's budget and stops monthly repetition for this category.
-                Other saved monthly budgets and all expense transactions remain unchanged.
+                Choose what to delete below. Past months, unrelated budgets and all expense transactions are preserved.
             </div>
             <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
             <form asp-controller="Budget" asp-action="Delete" method="post">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.BudgetId" />
+                <fieldset class="mb-4">
+                    <legend class="h6">Delete options</legend>
+                    <div class="form-check mb-2">
+                        <input type="radio" name="scope" value="month" id="deleteMonth" class="form-check-input" checked />
+                        <label for="deleteMonth" class="form-check-label">Delete this month only. Keep repetition running.</label>
+                    </div>
+                    @if (Model.CanDeleteSeries)
+                    {
+                        <div class="form-check">
+                            <input type="radio" name="scope" value="series" id="deleteSeries" class="form-check-input" />
+                            <label for="deleteSeries" class="form-check-label">Delete this month and all future budgets in this repeating series (@Model.FutureSeriesCount future saved budget(s)). Stop this series.</label>
+                        </div>
+                    }
+                </fieldset>
+                @if (Model.HasUnlinkedCategoryBudgets)
+                {
+                    <p class="text-muted small">Some budgets in this category have no series link (including older records and independent budgets). They are preserved unless you delete them individually. Series deletion is available only on linked budgets.</p>
+                }
                 <div class="d-flex flex-wrap justify-content-end gap-2">
                     <a asp-action="Index" asp-route-month="@Model.BudgetMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture)" class="btn btn-outline-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-danger">Delete budget and stop repeating</button>
+                    <button type="submit" class="btn btn-danger">Confirm deletion</button>
                 </div>
             </form>
         </div></div>
