@@ -1,0 +1,96 @@
+@model IPFMMS.ViewModels.SpendingPredictionViewModel
+@using System.Globalization
+@{
+    ViewData["Title"] = "Spending Prediction";
+    Layout = "_DashboardLayout";
+    string MonthKey(DateTime d) => d.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+    string LocalDate(DateTime d) => DateTime.SpecifyKind(d, DateTimeKind.Utc).AddHours(8).ToString("dd MMM yyyy HH:mm") + " MYT";
+    string TrendStyle(string trend) => trend == "Increasing" ? "color:#b02a37;background:#f8d7da;border:1px solid #f1aeb5" : trend == "Decreasing" ? "color:#146c43;background:#d1e7dd;border:1px solid #a3cfbb" : "color:#087990;background:#cff4fc;border:1px solid #9eeaf9";
+    var maximum = Math.Max(1m, Math.Max(Model.Months.Max(m => m.Amount), Model.PredictedAmount ?? 0));
+}
+<div class="container-fluid py-4">
+    <h2 class="fw-bold mb-1">Spending Prediction</h2>
+    <p class="text-muted mb-4">Compare a prediction based on completed months with an early estimate for next month.</p>
+    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+    <form asp-action="Index" method="get" class="d-flex flex-wrap gap-3 align-items-end mb-4" id="predictionFilter">
+        <div><label for="predictionMonth" class="form-label">Prediction month</label><input type="month" id="predictionMonth" name="month" class="form-control" min="1000-04" max="@ViewData["CurrentMonth"]" value="@MonthKey(Model.Month)" required /></div>
+        <button type="submit" class="btn btn-outline-primary">View prediction</button>
+    </form>
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Prediction for @Model.Month.ToString("MMMM yyyy")</h3>
+        @if(Model.PredictedAmount.HasValue){
+            <div class="display-5 fw-bold mb-3">RM @Model.PredictedAmount.Value.ToString("N2")</div>
+            <span class="badge rounded-2 px-3 py-2" style="@TrendStyle(Model.Trend)">@Model.Trend</span>
+            <p class="mt-3 mb-0">Compared with @Model.Months.Last().Month.ToString("MMMM yyyy"): <strong>@(Model.Difference > 0 ? "+" : "")RM @Model.Difference!.Value.ToString("N2")</strong>
+                @if(Model.ChangePercent.HasValue){<span>(@(Model.ChangePercent > 0 ? "+" : "")@Model.ChangePercent.Value.ToString("0.##")%)</span>}
+                else{<span>(percentage change unavailable when the previous total is zero)</span>}
+            </p>
+        } else {
+            <div class="alert alert-info mb-0" role="status"><strong>Not enough data to predict spending.</strong> Record expenses in each of the three completed months below. A month without records is treated as missing data.</div>
+        }
+        <p class="text-muted small mt-3 mb-0">This prediction uses three completed months. The current incomplete month is excluded from this calculation.</p>
+    </div></section>
+    @if(Model.NextMonthPreview is { } preview){
+        <section class="card border-0 shadow-sm mb-4" aria-labelledby="upcomingPredictionTitle"><div class="card-body p-4">
+            <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+                <h3 class="h5 fw-bold mb-0" id="upcomingPredictionTitle">Early prediction for @preview.Month.ToString("MMMM yyyy")</h3>
+                <span class="badge px-3 py-2" style="color:#856404;background:#fff3cd;border:1px solid #ffe69c">Provisional</span>
+            </div>
+            @if(preview.PredictedAmount.HasValue){
+                <div class="display-5 fw-bold mb-3">RM @preview.PredictedAmount.Value.ToString("N2")</div>
+                <span class="badge px-3 py-2" style="@TrendStyle(preview.Trend)">@preview.Trend</span>
+                <p class="small text-muted mt-2">Trend compares this estimate with projected @preview.ProjectionAsOf!.Value.ToString("MMMM") spending.</p>
+            } else {
+                <div class="alert alert-info" role="status">Not enough data for next month's estimate. Record expenses in both preceding completed months and the current month.</div>
+            }
+            <p class="mb-2">@preview.ProjectionAsOf!.Value.ToString("MMMM") spending through @preview.ProjectionAsOf.Value.ToString("dd MMM yyyy"): <strong>RM @preview.MonthToDateSpending.ToString("N2")</strong>.</p>
+            @if(preview.Months.Last().Count > 0){
+                <p class="small">Projected full-month spending = RM @preview.MonthToDateSpending.ToString("N2") ÷ @preview.ElapsedDays elapsed calendar day(s) × @preview.DaysInMonth days = <strong>RM @preview.Months.Last().Amount.ToString("N2")</strong>.</p>
+            }
+            <details class="mt-3"><summary class="fw-semibold">Next-month calculation breakdown</summary>
+                <p class="small text-muted mt-3 d-md-none">Swipe the table to see all columns.</p>
+                <div class="table-responsive mt-3"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Source month</th><th>Source</th><th class="text-end">Amount (RM)</th><th class="text-end">Weight</th><th class="text-end">Weighted amount (RM)</th></tr></thead><tbody>
+                    @foreach(var entry in preview.Months){<tr><th scope="row" class="fw-normal">@entry.Month.ToString("MMM yyyy")</th><td>@(entry.Count == 0 ? "Missing records" : entry.Month == preview.ProjectionAsOf.Value.AddDays(1-preview.ProjectionAsOf.Value.Day) ? "Projected full month" : "Completed month")</td><td class="text-end">@(entry.Count > 0 ? entry.Amount.ToString("N2") : "—")</td><td class="text-end">@((entry.Weight*100).ToString("0"))%</td><td class="text-end">@(entry.Count > 0 ? entry.WeightedAmount.ToString("N2") : "—")</td></tr>}
+                </tbody></table></div>
+            </details>
+            <p class="small text-muted mt-3 mb-0">This estimate assumes the current daily spending pace continues. It updates when you reopen this page and may change substantially early in the month. Future-dated expenses are excluded. It stays outside saved prediction history until the source month finishes; then the regular prediction uses its actual total.</p>
+        </div></section>
+    }
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">@Model.Month.ToString("MMMM yyyy") prediction breakdown</h3>
+        <p class="small text-muted d-md-none">Swipe the table to see all columns.</p>
+        <div class="table-responsive"><table class="table align-middle"><thead class="table-light"><tr><th>Completed month</th><th class="text-end">Spending (RM)</th><th class="text-end">Weight</th><th class="text-end">Weighted amount (RM)</th><th>Data status</th></tr></thead>
+            <tbody>@foreach(var entry in Model.Months){<tr><th scope="row" class="fw-normal">@entry.Month.ToString("MMMM yyyy")</th><td class="text-end">@(entry.Count > 0 ? entry.Amount.ToString("N2") : "—")</td><td class="text-end">@((entry.Weight*100).ToString("0"))%</td><td class="text-end">@(entry.Count > 0 ? entry.WeightedAmount.ToString("N2") : "—")</td><td>@(entry.Count > 0 ? entry.Count + " record(s)" : "Missing records")</td></tr>}</tbody>
+        </table></div>
+        <p class="small text-muted mb-0">Weighted Moving Average = oldest month × 20% + middle month × 30% + latest month × 50%. The total is rounded to two decimal places after adding the weighted amounts.</p>
+    </div></section>
+    @if(Model.PredictedAmount.HasValue){
+        <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Recorded spending and prediction</h3>
+            @foreach(var entry in Model.Months){<div class="mb-3"><div class="d-flex flex-wrap justify-content-between gap-2 small mb-1"><span>@entry.Month.ToString("MMM yyyy") · Recorded</span><span>RM @entry.Amount.ToString("N2")</span></div><div class="progress" style="height:14px"><div class="progress-bar" style="background:#16899a;width:@((entry.Amount/maximum*100).ToString("0.##",CultureInfo.InvariantCulture))%"></div></div></div>}
+            <div><div class="d-flex flex-wrap justify-content-between gap-2 small mb-1"><strong>@Model.Month.ToString("MMM yyyy") · Predicted</strong><strong>RM @Model.PredictedAmount.Value.ToString("N2")</strong></div><div class="progress" style="height:14px"><div class="progress-bar" style="background:#6554a4;width:@((Model.PredictedAmount.Value/maximum*100).ToString("0.##",CultureInfo.InvariantCulture))%"></div></div></div>
+        </div></section>
+    }
+    <details class="card border-0 shadow-sm mb-4"><summary class="p-4 fw-semibold">How to interpret this prediction</summary><div class="px-4 pb-4 small">
+        <p>The latest completed month receives the greatest weight. Increasing, Stable and Decreasing compare the predicted amount with the latest completed month's total; Stable means the rounded amounts are equal.</p>
+        <p>Only your recorded expenses are included. Savings contributions, planned budgets and bills that have not been recorded as expenses are excluded. Adding more records to an earlier month can change the estimate.</p>
+        <p class="mb-0">This is a planning estimate, not a spending limit or guaranteed outcome. Unusual one-off purchases and incomplete records can affect it. No money is deducted and no budgets are changed.</p>
+    </div></details>
+    <section class="card border-0 shadow-sm"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Saved prediction history</h3>
+        <p class="text-muted small">Predictions save automatically when viewed. Reopening a prediction recalculates it from your latest records and updates the same month; other entries show their last calculation. If that month's required records are missing, its saved prediction is removed.</p>
+        <p class="small text-muted d-md-none">Swipe the table to see all columns.</p>
+        @if(Model.History.Count == 0){<p class="mb-0 text-muted">No predictions available yet.</p>}
+        else {
+            <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Prediction month</th><th class="text-end">Predicted spending (RM)</th><th>Trend</th><th>Calculated</th></tr></thead><tbody>
+                @foreach(var record in Model.History){<tr><th scope="row" class="fw-normal"><a asp-action="Index" asp-route-month="@MonthKey(record.predictionMonth)">@record.predictionMonth.ToString("MMM yyyy")</a></th><td class="text-end">@record.predictedAmount.ToString("N2")</td><td><span class="badge rounded-2 px-2 py-2" style="@TrendStyle(record.trend)">@record.trend</span></td><td class="small">@LocalDate(record.calculatedDate)</td></tr>}
+            </tbody></table></div>
+            @if(Model.HistoryPages > 1){<nav aria-label="Prediction history pages" class="d-flex gap-2 align-items-center mt-3">
+                @if(Model.HistoryPage > 1){<a asp-action="Index" asp-route-month="@MonthKey(Model.Month)" asp-route-page="@(Model.HistoryPage-1)" class="btn btn-sm btn-outline-secondary">Previous</a>}
+                <span class="small text-muted">Page @Model.HistoryPage of @Model.HistoryPages</span>
+                @if(Model.HistoryPage < Model.HistoryPages){<a asp-action="Index" asp-route-month="@MonthKey(Model.Month)" asp-route-page="@(Model.HistoryPage+1)" class="btn btn-sm btn-outline-secondary">Next</a>}
+            </nav>}
+        }
+    </div></section>
+</div>
+@section Scripts {<script>document.getElementById('predictionMonth').addEventListener('change',()=>{const form=document.getElementById('predictionFilter');if(form.reportValidity())form.requestSubmit();});</script>}

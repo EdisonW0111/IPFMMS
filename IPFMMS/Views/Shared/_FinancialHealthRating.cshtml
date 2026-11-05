@@ -1,0 +1,12 @@
+@model string
+@{
+    var (colour, background, border) = Model switch
+    {
+        "Excellent" => ("#146c43", "#d1e7dd", "#a3cfbb"),
+        "Good" => ("#087990", "#cff4fc", "#9eeaf9"),
+        "Fair" => ("#856404", "#fff3cd", "#ffe69c"),
+        "Needs attention" => ("#b02a37", "#f8d7da", "#f1aeb5"),
+        _ => ("#495057", "#e9ecef", "#ced4da")
+    };
+}
+<span class="badge rounded-2 fw-semibold" style="color:@colour;background-color:@background;border:1px solid @border;padding:.45em .75em;white-space:nowrap">@Model</span>

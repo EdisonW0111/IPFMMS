@@ -1,0 +1,19 @@
+@model IPFMMS.ViewModels.SpendingInsightsViewModel
+@{
+    ViewData["Title"]="Spending Insights";
+    Layout="_DashboardLayout";
+}
+<div class="container-fluid py-4">
+    <div class="mb-4"><h2 class="fw-bold mb-1">Spending Insights</h2>
+        <p class="text-muted mb-0">See what changed in your spending and which parts of your plan may need a closer look.</p></div>
+    <form asp-action="Index" method="get" id="insightsFilter" class="d-flex flex-wrap gap-3 align-items-end mb-4">
+        <div><label for="insightsMonth" class="form-label">Analysis month</label>
+            <input id="insightsMonth" name="month" type="month" value="@Model.MonthValue" min="1000-02" max="@ViewData["CurrentMonth"]" class="form-control" required /></div>
+        <button type="submit" class="btn btn-outline-primary">View month</button>
+    </form>
+    <p id="insightsLoading" class="text-muted d-none" role="status">Updating insights...</p>
+    <div id="insightsError" class="alert alert-danger d-none" role="alert">Unable to load insights. The previous results are still displayed.
+        <button type="button" id="insightsRetry" class="btn btn-sm btn-outline-danger ms-2">Try again</button></div>
+    <div id="insightsResults" aria-busy="false"><partial name="_Insights" model="Model" /></div>
+</div>
+@section Scripts { <script src="~/js/spending-insights.js" asp-append-version="true"></script> }

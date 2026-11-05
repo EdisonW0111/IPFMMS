@@ -11,6 +11,8 @@ namespace IPFMMS.Data
         {
         }
 
+        public DbSet<SpendingPrediction> SpendingPredictions { get; set; }
+        public DbSet<FinancialHealthRecord> FinancialHealthRecords { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<EmailOTP> EmailOTPs { get; set; }
         public DbSet<IdCounter> IdCounters { get; set; }
@@ -30,6 +32,22 @@ namespace IPFMMS.Data
             ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<SpendingPrediction>(entity =>
+            {
+                entity.ToTable("SpendingPredictions");
+                entity.HasKey(p => p.predictionId);
+                entity.Property(p => p.predictionId).ValueGeneratedNever();
+                entity.HasIndex(p => new { p.userId, p.predictionMonth }).IsUnique();
+                entity.HasOne(p => p.User).WithMany().HasForeignKey(p => p.userId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<FinancialHealthRecord>(entity =>
+            {
+                entity.ToTable("FinancialHealthRecords");
+                entity.HasKey(r => r.healthRecordId);
+                entity.Property(r => r.healthRecordId).ValueGeneratedNever();
+                entity.HasIndex(r => new { r.userId, r.recordMonth }).IsUnique();
+                entity.HasOne(r => r.User).WithMany().HasForeignKey(r => r.userId).OnDelete(DeleteBehavior.Restrict);
+            });
 
             modelBuilder.Entity<User>(entity =>
             {

@@ -27,6 +27,27 @@
         </div>
     </div>
 
+    @if (Model.FinancialHealth is { } health)
+    {
+        <section aria-labelledby="healthPreviewHeading" class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div><h3 id="healthPreviewHeading" class="h5 fw-bold">Financial health - @Model.CurrentMonth.ToString("MMMM yyyy")</h3>
+                    @if (health.Overall.HasValue)
+                    {
+                        <div class="h3 fw-bold mb-1">@health.Overall.Value.ToString("0.##") / 100 <span class="h6"><partial name="_FinancialHealthRating" model="health.Rating" /></span></div>
+                        <p class="small text-muted mb-0">Provisional score based on your recorded savings, budgets and three completed spending months.</p>
+                    }
+                    else
+                    {
+                        <p class="mb-1">Not enough data for an overall score.</p>
+                        <p class="small text-muted mb-0">View the breakdown to see which records are needed.</p>
+                    }
+                </div>
+                <a asp-controller="FinancialHealth" asp-action="Index" asp-route-month="@monthKey" class="btn btn-outline-primary">View score breakdown</a>
+            </div>
+        </section>
+    }
+
     <section aria-labelledby="overallHeading" class="mb-4">
         <h3 id="overallHeading" class="h5 fw-bold mb-3">Overall balances</h3>
         <div class="row g-3">

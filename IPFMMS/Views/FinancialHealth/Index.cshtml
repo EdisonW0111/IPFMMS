@@ -1,0 +1,88 @@
+@model IPFMMS.ViewModels.FinancialHealthViewModel
+@using System.Globalization
+@{
+    ViewData["Title"]="Financial Health";Layout="_DashboardLayout";
+    string LocalDate(DateTime d)=>DateTime.SpecifyKind(d,DateTimeKind.Utc).AddHours(8).ToString("dd MMM yyyy HH:mm",CultureInfo.InvariantCulture)+" MYT";
+    var components=new[]{(Name:"Savings ratio",Value:Model.SavingsScore,Weight:40),(Name:"Budget adherence",Value:Model.BudgetScore,Weight:30),(Name:"Spending stability",Value:Model.StabilityScore,Weight:30)};
+}
+<div class="container-fluid py-4">
+    <h2 class="fw-bold mb-1">Financial Health</h2>
+    <p class="text-muted mb-4">Understand your savings, budget adherence and spending stability.</p>
+    @if(TempData["SuccessMessage"] is string success){<div class="alert alert-success" role="status">@success</div>}
+    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+    <form asp-action="Index" method="get" class="d-flex flex-wrap gap-3 align-items-end mb-4" id="healthFilter">
+        <div><label for="healthMonth" class="form-label">Score month</label><input type="month" id="healthMonth" name="month" class="form-control" min="1000-04" max="@ViewData["CurrentMonth"]" value="@Model.MonthValue" required /></div>
+        <button type="submit" class="btn btn-outline-primary">View month</button>
+    </form>
+    <div class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <div class="d-flex flex-wrap gap-4 justify-content-between align-items-center">
+            <div><h3 class="h5 fw-bold">@Model.Month.ToString("MMMM yyyy")</h3>
+                <div class="display-5 fw-bold">@(Model.Overall.HasValue?Model.Overall.Value.ToString("0.##")+" / 100":"Not enough data")</div>
+                @if(Model.Overall.HasValue){<div class="mt-2"><partial name="_FinancialHealthRating" model="Model.Rating" /></div>}
+                <div class="text-muted small mt-2">@(Model.IsProvisional?"Provisional score through "+Model.AsOfDate.ToString("dd MMM yyyy"):"Completed-month calculation from your current saved records")</div>
+            </div>
+
+        </div>
+        <p class="text-muted small mt-3 mb-0">This is IPFMMS's system-defined indicator. The score reflects the records available to the system.
+            Current-month scores remain provisional; completed months are saved automatically when you open this page, once all three components are available.</p>
+        @if(Model.SavedRecord!=null){<p class="text-muted small mt-2 mb-0">Last saved: @Model.SavedRecord.healthScore.ToString("0.##") / 100 (<partial name="_FinancialHealthRating" model="Model.SavedRecord.rating" />), calculated @LocalDate(Model.SavedRecord.calculatedDate).
+            History automatically refreshes from your latest transactions and budgets when you open this page.</p>}
+    </div></div>
+    @if(Model.MissingData.Count>0){<div class="alert alert-info" role="status"><strong>Complete the following to calculate the overall score:</strong><ul class="mb-0 mt-2">@foreach(var reason in Model.MissingData){<li>@reason</li>}</ul></div>}
+    <div class="row g-3 mb-4">
+        @foreach(var component in components){
+            <div class="col-12 col-lg-4"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+                <h3 class="h6 fw-bold">@component.Name <span class="text-muted fw-normal">(@component.Weight%)</span></h3>
+                <div class="h3 fw-bold">@(component.Value.HasValue?component.Value.Value.ToString("0.##")+" / 100":"Unavailable")</div>
+                @if(component.Value.HasValue){<div class="progress" style="height:8px"><div class="progress-bar" style="background:#16899a;width:@component.Value.Value.ToString("0.##",CultureInfo.InvariantCulture)%"></div></div>}
+            </div></div></div>
+        }
+    </div>
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-6"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Savings ratio breakdown</h3>
+            <p>Recorded income: <strong>RM @Model.Income.ToString("N2")</strong><br/>Recorded savings contributions: <strong>RM @Model.Savings.ToString("N2")</strong><br/>Recorded expenses: <strong>RM @Model.Expenses.ToString("N2")</strong></p>
+            <p class="mb-0">Savings ratio: <strong>@(Model.SavingsRatio.HasValue?Model.SavingsRatio.Value.ToString("0.##")+"%":"Unavailable without positive income")</strong></p>
+            <p class="text-muted small mt-2 mb-0">Manual and completed automatic savings contributions count toward the ratio. Monthly savings targets alone do not count. Contributions can use funds carried over from earlier months.</p>
+        </div></div></div>
+        <div class="col-12 col-lg-6"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Budget adherence breakdown</h3>
+            <p>@Model.BudgetsWithinLimit of @Model.BudgetCount saved category budgets are within their limits.</p>
+            <p>@Model.UnbudgetedCategories additional category/categories have recorded spending without a saved budget.</p>
+            <p class="text-muted small mb-0">The denominator includes saved budget categories plus spent categories without budgets. Unbudgeted categories do not earn adherence points. Percentage budgets use the selected period's recorded income. Only saved budgets are checked.</p>
+        </div></div></div>
+    </div>
+    <article class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Spending stability baseline</h3>
+        <p class="text-muted small">Three completed calendar months are used. A current-month preview uses the preceding three months; a completed-month score includes that month. Months without expense records require more data.</p>
+        <div class="table-responsive"><table class="table mb-0"><thead class="table-light"><tr><th>Month</th><th class="text-end">Expenses (RM)</th><th class="text-end">Records</th><th>Data status</th></tr></thead>
+            <tbody>@foreach(var month in Model.StabilityMonths){<tr><th scope="row" class="fw-normal">@month.Month.ToString("MMMM yyyy")</th><td class="text-end">@month.Amount.ToString("N2")</td><td class="text-end">@month.Count</td><td>@(month.Count>0?"Recorded":"Missing records")</td></tr>}</tbody>
+        </table></div>
+        @if(Model.SpendingVariation.HasValue){<p class="text-muted small mt-3 mb-0">Relative spending variation: @Model.SpendingVariation.Value.ToString("0.##")%. Irregular spending may reflect legitimate one-off needs.</p>}
+    </div></article>
+    <details class="card border-0 shadow-sm mb-4"><summary class="p-4 fw-semibold">How the score is calculated</summary><div class="px-4 pb-4 small">
+        <p><strong>Overall = savings score × 40% + budget score × 30% + stability score × 30%.</strong></p>
+        <ul><li>Savings score = (recorded contributions ÷ income ÷ 20%) × 100. A 20% savings ratio reaches 100 points.</li>
+            <li>Budget score = budgets within limit ÷ (saved budget categories + unbudgeted spent categories) × 100.</li>
+            <li>Stability score = (1 − population standard deviation ÷ average monthly expenses) × 100, using the three completed months above.</li></ul>
+        <p>Components are limited to 0–100 and rounded to two decimal places before combining. Missing components are not replaced with zeros or redistributed weights.</p>
+        <p class="mb-0">Rating bands: Excellent ≥80; Good ≥60; Fair ≥40; Needs attention &lt;40. The savings target, formulas and rating bands define the IPFMMS indicator.</p>
+    </div></details>
+    <article class="card border-0 shadow-sm"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Saved monthly history</h3>
+        <p class="text-muted small">Completed months save automatically when this page opens. Corrections refresh the same monthly record. Months that no longer have enough data are removed from history.</p>
+        @if(Model.History.Count==0){<p class="text-muted mb-0">No monthly scores saved yet.</p>}
+        else{
+            <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Month</th><th>Savings</th><th>Budget</th><th>Stability</th><th>Overall</th><th>Rating</th><th>Calculated</th></tr></thead>
+            <tbody>@foreach(var record in Model.History){<tr><th scope="row" class="fw-normal"><a asp-action="Index" asp-route-month="@record.recordMonth.ToString("yyyy-MM")">@record.recordMonth.ToString("MMM yyyy")</a></th>
+                <td>@record.savingsRatioScore.ToString("0.##")</td><td>@record.budgetAdherenceScore.ToString("0.##")</td><td>@record.spendingStabilityScore.ToString("0.##")</td><td class="fw-bold">@record.healthScore.ToString("0.##")</td><td><partial name="_FinancialHealthRating" model="record.rating" /></td><td class="small">@LocalDate(record.calculatedDate)</td></tr>}</tbody>
+            </table></div>
+            @if(Model.HistoryPages>1){<nav aria-label="Financial health history pages" class="mt-3 d-flex gap-2 align-items-center">
+                @if(Model.HistoryPage>1){<a asp-action="Index" asp-route-month="@Model.MonthValue" asp-route-page="@(Model.HistoryPage-1)" class="btn btn-sm btn-outline-secondary">Previous</a>}
+                <span class="small text-muted">Page @Model.HistoryPage of @Model.HistoryPages</span>
+                @if(Model.HistoryPage<Model.HistoryPages){<a asp-action="Index" asp-route-month="@Model.MonthValue" asp-route-page="@(Model.HistoryPage+1)" class="btn btn-sm btn-outline-secondary">Next</a>}
+            </nav>}
+        }
+    </div></article>
+</div>
+@section Scripts {<script>document.getElementById('healthMonth').addEventListener('change',()=>{const f=document.getElementById('healthFilter');if(f.reportValidity())f.requestSubmit();});</script>}

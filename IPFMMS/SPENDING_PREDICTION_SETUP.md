@@ -1,0 +1,19 @@
+# Spending prediction
+
+Preserves Figure 4.24 class SpendingPrediction and all six exact attributes: predictionId, userId, predictedAmount, trend, predictionMonth, calculatedDate. User navigation is an addition. Unique userId/predictionMonth and restrictive owner FK enforce ownership and one result per month. Monetary totals use decimal(18,2).
+
+Portfolio WMA: oldest completed month 20%, middle 30%, latest 50%. Add weighted totals using decimal and round the result to cents away from zero. Three consecutive completed months, each with at least one expense record, are required. Missing months are not assumed zero. A month with an actual zero-valued record remains recorded data. Stable means equal to the latest month's total at cent precision; otherwise Increasing or Decreasing. No unstated trend tolerance is introduced.
+
+The prediction month follows the three source months. In November, August/September/October predict November. The regular December prediction becomes available when November finishes. Current partial months never enter the baseline. Month selection allows historical predictions through the current Malaysia month; historical calculations use only records before their target month, with no later-period leakage. Retrospective edits can refresh these estimates, so saved results are recalculated estimates rather than immutable original forecasts.
+
+Opening the page automatically calculates and upserts the selected eligible owner/month under a serializable transaction and user row lock. Unchanged output retains ID and calculatedDate. Missing required data removes that selected month's old prediction. Other history entries show last calculation until opened. Authenticated User/Parent roles see only their own data. There are no editable score, owner or amount inputs, no deduction and no budget writes. History uses 12 entries per page. No background scheduling is required.
+
+Apply AddSpendingPrediction using Update-Database locally before opening Analytics & Prediction -> Spending Prediction. Apply the corresponding migration to Azure before deploying the updated app. Migration generation does not update either application database.
+
+Test: use consecutive monthly expense totals 1000, 1200, 1400; prediction should be 1260, Decreasing vs 1400. Reload without duplicates. Edit an old amount, reopen and check refresh. Remove all records from one baseline month to check insufficient data. Check another account, invalid/future months, pagination and mobile layout.
+
+
+## Provisional next-month preview
+When the selected month is the current Malaysia month, the page also shows next month's provisional prediction. It uses the prior two completed months at 20% and 30%, and a projected current-month total at 50%. Projected current total = owner expenses from month start through today inclusive / elapsed calendar days including today * calendar days in this month. Retain decimal precision until the final WMA is rounded. Future-dated expenses and other owners are excluded. All three source months need records; no zero-filled missing months. A next-month preview can be available even if the current prediction lacks its oldest baseline month.
+
+The projection is an explicitly additional assumption beyond the portfolio WMA, shown to the user with its actual month-to-date amount, as-of date, day counts, projected total and source table. Trend compares against the projected current total. The preview is never inserted into SpendingPredictions, preventing confusion with completed-data results and requiring no schema change. After rollover, the regular current-month prediction automatically uses the now-completed prior month's actual expenses. Historical selections retain their completed-data calculation and do not project incomplete historical months.

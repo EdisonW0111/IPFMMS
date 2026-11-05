@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using IPFMMS.Data;
 using IPFMMS.Services;
 using IPFMMS.ViewModels;
@@ -115,6 +115,8 @@ namespace IPFMMS.Controllers
                     ContributionCount = g.SavingsContributions.Count(), AsOfDate = today
                 }).ToListAsync();
 
+            model.FinancialHealth = await new FinancialHealthService(_context)
+                .BuildAsync(userId, month, today, includeHistory: false);
             return View(model);
         }
 

@@ -2,6 +2,7 @@ namespace IPFMMS.ViewModels
 {
     public class FinancialDashboardViewModel
     {
+        public FinancialHealthViewModel? FinancialHealth { get; set; }
         public DateTime AsOfDate { get; set; }
         public DateTime CurrentMonth => new(AsOfDate.Year, AsOfDate.Month, 1);
 

@@ -1,4 +1,4 @@
-﻿document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", function () {
 
     const wrapper = document.getElementById("dashboardWrapper");
     const toggle = document.getElementById("sidebarToggle");
@@ -64,39 +64,24 @@
         updateToggle();
     });
 
-    // Budget and Savings share a collapsible navigation group.
-    const budgetSavingsToggle = document.getElementById("budgetSavingsToggle");
-    const budgetSavingsSubmenu = document.getElementById("budgetSavingsSubmenu");
-
-    function setBudgetSavingsOpen(open) {
-        budgetSavingsSubmenu.hidden = !open;
-        budgetSavingsToggle.setAttribute("aria-expanded", String(open));
-    }
-
-    if (budgetSavingsToggle && budgetSavingsSubmenu) {
-        budgetSavingsToggle.addEventListener("click", function () {
-            const collapsedDesktop = window.matchMedia("(min-width: 769px)").matches &&
-                wrapper.classList.contains("sidebar-collapsed");
-            if (collapsedDesktop) {
-                wrapper.classList.remove("sidebar-collapsed");
-                try {
-                    localStorage.setItem(storageKey, "false");
-                } catch (error) {
-                    // Navigation still works when storage is unavailable.
-                }
-                updateToggle();
-                setBudgetSavingsOpen(true);
-            } else {
-                setBudgetSavingsOpen(budgetSavingsSubmenu.hidden);
-            }
+    // Every navigation group shares the same accessible collapse behavior.
+    for (const groupToggle of document.querySelectorAll('.sidebar-group-toggle')) {
+        const submenu = document.getElementById(groupToggle.getAttribute('aria-controls'));
+        if (!submenu) continue;
+        function setOpen(open) {
+            submenu.hidden = !open;
+            groupToggle.setAttribute('aria-expanded', String(open));
+        }
+        groupToggle.addEventListener('click', function () {
+            if (window.matchMedia('(min-width: 769px)').matches && wrapper.classList.contains('sidebar-collapsed')) {
+                wrapper.classList.remove('sidebar-collapsed');
+                try { localStorage.setItem(storageKey, 'false'); } catch {}
+                updateToggle();setOpen(true);
+            } else setOpen(submenu.hidden);
         });
-
-        toggle.addEventListener("click", function () {
-            if (wrapper.classList.contains("sidebar-collapsed")) {
-                setBudgetSavingsOpen(false);
-            } else if (budgetSavingsToggle.dataset.currentSection === "true") {
-                setBudgetSavingsOpen(true);
-            }
+        toggle.addEventListener('click', function () {
+            if (wrapper.classList.contains('sidebar-collapsed')) setOpen(false);
+            else if (groupToggle.dataset.currentSection === 'true') setOpen(true);
         });
     }
 

@@ -1,0 +1,121 @@
+@model IPFMMS.ViewModels.SpendingInsightsViewModel
+@using System.Globalization
+@{
+    string Change(decimal value)=>value>0?"+RM "+value.ToString("N2"):value<0?"-RM "+Math.Abs(value).ToString("N2"):"RM 0.00";
+    int mostDay=Model.Weekdays.Select(d=>d.Count).DefaultIfEmpty(0).Max();
+}
+<section class="insights-overview" data-month="@Model.MonthValue" aria-label="Spending insights for @Model.Month.ToString("MMMM yyyy")">
+    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+    <h3 class="h5 fw-bold">@Model.Month.ToString("MMMM yyyy")</h3>
+    <p class="text-muted small">Records covered: @Model.PeriodLabel.
+        @(Model.IsCurrentMonth?"This month is still in progress; future-dated entries are excluded.":"This is a completed calendar month.")</p>
+    @if(Model.TransactionCount==0)
+    {<div class="alert alert-info" role="status">No expenses were recorded in this period. Choose a month with expenses or add records before drawing spending conclusions.</div>}
+    else if(!Model.HasPatternData)
+    {<div class="alert alert-info" role="status">Limited data: totals and budget checks are available. Behaviour-based suggestions need at least 5 expenses across 3 different days.</div>}
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Recorded expenses</div><h3 class="fw-bold mb-1">RM @Model.TotalExpenses.ToString("N2")</h3>
+            <span class="text-muted small">RM @Model.AveragePerDay.ToString("N2") per calendar day in this period</span>
+        </div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Spending frequency</div><h3 class="fw-bold mb-1">@Model.TransactionCount expense(s)</h3>
+            <span class="text-muted small">Across @Model.ActiveDays day(s) · RM @Model.AverageTransaction.ToString("N2") per transaction</span>
+        </div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Comparable-period change</div>
+            <h3 class="fw-bold mb-1 @(Model.Change>0?"text-danger":"")">@Change(Model.Change)</h3>
+            <span class="text-muted small">@(Model.ChangePercent.HasValue?Model.ChangePercent.Value.ToString("+0.##;-0.##;0")+"% versus comparison period":"No percentage change: the comparison period has no recorded expenses.")</span>
+        </div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <div class="text-muted small mb-2">Budgets exceeded</div><h3 class="fw-bold mb-1 @(Model.OverspentBudgets>0?"text-danger":"")">@Model.OverspentBudgets</h3>
+            <span class="text-muted small">RM @Model.OverBudgetAmount.ToString("N2") over saved category limits</span>
+        </div></div></div>
+    </div>
+    <div class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">How the spending comparison works</h3>
+        <p class="mb-1">@Model.ComparisonLabel</p>
+        <p class="text-muted small mb-0">Comparable current spending: RM @Model.ComparableCurrentExpenses.ToString("N2") (@Model.ComparableCurrentCount transaction(s)).
+            Previous spending: RM @Model.PreviousExpenses.ToString("N2") (@Model.PreviousCount transaction(s)).
+            Current-month comparisons use the same number of elapsed days in both months, capped by the shorter month.
+            Completed months compare their full recorded totals. Missing records are not evidence of no real-world spending.</p>
+    </div></div>
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-lg-6"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Highest-spending category</h3>
+            @if(Model.HighestCategories.Count==0){<p class="text-muted mb-0">No recorded expenses to rank.</p>}
+            else
+            {
+                @foreach(var category in Model.HighestCategories){<div class="mb-2 text-break"><strong>@category.Name</strong><div>RM @category.Amount.ToString("N2") · @category.Share.ToString("0.##")% of recorded expenses</div></div>}
+                @if(Model.HighestCategories.Count>1){<p class="text-muted small mb-0">These categories are tied for the highest amount.</p>}
+            }
+            <h4 class="h6 fw-bold mt-4">Most frequent category</h4>
+            @if(Model.MostFrequentCategories.Count==0){<p class="text-muted mb-0">No transactions to rank.</p>}
+            else
+            {
+                @foreach(var category in Model.MostFrequentCategories){<div class="mb-2 text-break">@category.Name: <strong>@category.Count transaction(s)</strong>, averaging RM @category.Average.ToString("N2")</div>}
+                @if(Model.MostFrequentCategories.Count>1){<p class="text-muted small mb-0">These categories have the same transaction count.</p>}
+            }
+        </div></div></div>
+        <div class="col-12 col-lg-6"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+            <h3 class="h5 fw-bold">Spending by weekday</h3><p class="text-muted small">Transaction counts in this period. A frequent weekday alone is not an overspending signal.</p>
+            @foreach(var day in Model.Weekdays)
+            {
+                var width=mostDay>0?(decimal)day.Count/mostDay*100m:0m;
+                <div class="mb-3"><div class="d-flex justify-content-between small mb-1"><span>@day.Day</span><span>@day.Count transaction(s) · RM @day.Amount.ToString("N2")</span></div>
+                    <div class="progress" style="height:7px"><div class="progress-bar" style="background:#16899a;width:@width.ToString("0.##",CultureInfo.InvariantCulture)%"></div></div></div>
+            }
+        </div></div></div>
+    </div>
+    <article class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Category patterns</h3>
+        <p class="text-muted small">Category change uses the comparable periods shown above. Categories from the previous period remain visible even with zero current spending. Scroll sideways on smaller screens.</p>
+        @if(Model.Categories.Count==0){<p class="text-muted mb-0">No expenses in either period.</p>}
+        else
+        {
+            <div class="table-responsive"><table class="table align-middle mb-0"><caption class="visually-hidden">Category spending, frequency and comparable-period changes in MYR</caption>
+                <thead class="table-light"><tr><th>Category</th><th class="text-end">Amount (RM)</th><th class="text-end">Share</th><th class="text-end">Transactions</th><th class="text-end">Spending days</th><th class="text-end">Comparable change</th><th>Budget</th></tr></thead>
+                <tbody>@foreach(var category in Model.Categories)
+                {<tr><th scope="row" class="fw-normal">@category.Name</th><td class="text-end">@category.Amount.ToString("N2")</td><td class="text-end">@category.Share.ToString("0.##")%</td><td class="text-end">@category.Count</td><td class="text-end">@category.ActiveDays</td>
+                    <td class="text-end text-nowrap">@Change(category.Change)</td><td>@(category.HasBudget?"Saved budget":"No saved budget")</td></tr>}</tbody>
+            </table></div>
+        }
+    </div></article>
+    <article class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Budget overspending checks</h3>
+        <p class="text-muted small">Saved budgets only. Percentage limits use income recorded through the report date. Spending without a matching budget: RM @Model.UnbudgetedSpending.ToString("N2"). Viewing insights does not create repeating budgets.</p>
+        @if(Model.Budgets.Count==0){<p class="text-muted mb-0">No saved category budgets for this month. Spending totals remain available, but there are no budget limits to check.</p>}
+        else
+        {
+            <div class="table-responsive"><table class="table align-middle mb-0"><caption class="visually-hidden">Recorded spending compared with saved category limits</caption>
+                <thead class="table-light"><tr><th>Category</th><th class="text-end">Limit (RM)</th><th class="text-end">Spent (RM)</th><th class="text-end">Remaining (RM)</th><th>Usage</th><th>Status</th></tr></thead>
+                <tbody>@foreach(var budget in Model.Budgets)
+                {
+                    var color=budget.AmountSpent>budget.BudgetLimit?"danger":budget.Utilization>=80m?"warning":"secondary";
+                    <tr><th scope="row" class="fw-normal">@budget.CategoryName</th><td class="text-end">@budget.BudgetLimit.ToString("N2")</td><td class="text-end">@budget.AmountSpent.ToString("N2")</td><td class="text-end @(budget.Remaining<0?"text-danger":"")">@budget.Remaining.ToString("N2")</td>
+                        <td>@(budget.Utilization.HasValue?budget.Utilization.Value.ToString("0.##")+"%":"N/A")</td><td><span class="badge bg-@color @(color=="warning"?"text-dark":"")">@budget.Status</span></td></tr>
+                }</tbody>
+            </table></div>
+        }
+    </div></article>
+    <h3 class="h5 fw-bold mb-3">Suggestions based on your records</h3>
+    <details class="mb-4 text-muted small">
+        <summary>How suggestions work</summary>
+        <p class="mt-2 mb-0">Suggestions use your recorded expenses, income and saved budgets for the selected month. Each suggestion explains the figures and thresholds that prompted it. Suggestions update when you reload or change the month. More transaction history may be needed before spending patterns can be identified.</p>
+    </details>
+    <div class="row g-3">
+        @foreach(var recommendation in Model.Recommendations)
+        {
+            <div class="col-12 col-lg-6"><article class="card border-0 shadow-sm h-100" data-insight-rule="@recommendation.Rule"><div class="card-body p-4">
+                <h4 class="h6 fw-bold @(recommendation.Severity=="danger"?"text-danger":"")">@recommendation.Title</h4>
+                <p class="small text-muted">@recommendation.Evidence</p><p class="mb-3">@recommendation.Suggestion</p>
+                @if(recommendation.Action=="Analytics")
+                {<a asp-controller="Analytics" asp-action="Index" asp-route-from="@Model.MonthValue" asp-route-to="@Model.MonthValue" class="btn btn-sm btn-outline-primary">View analytics</a>}
+                else if(recommendation.Action is "Income" or "Expense")
+                {<a asp-controller="@recommendation.Action" asp-action="Add" class="btn btn-sm btn-outline-primary">Add @recommendation.Action.ToLowerInvariant()</a>}
+                else
+                {<a asp-controller="@recommendation.Action" asp-action="Index" asp-route-month="@Model.MonthValue" class="btn btn-sm btn-outline-primary">@(recommendation.Action=="Budget"?"View budgets":"View transactions")</a>}
+            </div></article></div>
+        }
+    </div>
+</section>

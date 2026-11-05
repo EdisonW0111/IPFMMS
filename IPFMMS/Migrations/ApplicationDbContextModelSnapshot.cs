@@ -278,6 +278,53 @@ namespace IPFMMS.Migrations
                     b.ToTable("ExpenseCategories", (string)null);
                 });
 
+            modelBuilder.Entity("IPFMMS.Models.FinancialHealthRecord", b =>
+                {
+                    b.Property<string>("healthRecordId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("budgetAdherenceScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime>("calculatedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("formulaVersion")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("healthScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("rating")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("recordMonth")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("savingsRatioScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("spendingStabilityScore")
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("userId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("healthRecordId");
+
+                    b.HasIndex("userId", "recordMonth")
+                        .IsUnique();
+
+                    b.ToTable("FinancialHealthRecords", (string)null);
+                });
+
             modelBuilder.Entity("IPFMMS.Models.IdCounter", b =>
                 {
                     b.Property<string>("Prefix")
@@ -544,6 +591,39 @@ namespace IPFMMS.Migrations
                     b.ToTable("SavingsGoals", (string)null);
                 });
 
+            modelBuilder.Entity("IPFMMS.Models.SpendingPrediction", b =>
+                {
+                    b.Property<string>("predictionId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("calculatedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("predictedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("predictionMonth")
+                        .HasColumnType("date");
+
+                    b.Property<string>("trend")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("userId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("predictionId");
+
+                    b.HasIndex("userId", "predictionMonth")
+                        .IsUnique();
+
+                    b.ToTable("SpendingPredictions", (string)null);
+                });
+
             modelBuilder.Entity("IPFMMS.Models.User", b =>
                 {
                     b.Property<string>("UserId")
@@ -676,6 +756,17 @@ namespace IPFMMS.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("IPFMMS.Models.FinancialHealthRecord", b =>
+                {
+                    b.HasOne("IPFMMS.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("userId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("IPFMMS.Models.Income", b =>
                 {
                     b.HasOne("IPFMMS.Models.IncomeCategory", null)
@@ -731,6 +822,17 @@ namespace IPFMMS.Migrations
                     b.HasOne("IPFMMS.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.SpendingPrediction", b =>
+                {
+                    b.HasOne("IPFMMS.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("userId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
