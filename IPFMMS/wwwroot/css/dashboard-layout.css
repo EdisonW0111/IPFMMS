@@ -159,6 +159,9 @@ body {
 }
 
 .dashboard-header {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
     min-height: 82px;
     padding: 18px 32px;
     background: #ffffff;
