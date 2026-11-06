@@ -51,7 +51,7 @@
             <div class="sidebar-scroll">
                 <div class="sidebar-brand">
                     <a asp-controller="Dashboard"
-                        asp-action="Finance"
+                        asp-action="Index"
                         class="brand-link">
 
                         <img src="~/images/logo.png"
@@ -65,6 +65,10 @@
                 <nav class="sidebar-nav"
                     aria-label="Main navigation">
 
+                    @if(User.IsInRole("Admin")){
+                        <a asp-controller="Dashboard" asp-action="Admin" class="sidebar-link @(currentController == "Dashboard" ? "active" : "")" aria-current="@(currentController == "Dashboard" ? "page" : null)"><i class="bi bi-grid-1x2"></i><span class="nav-label">Admin Dashboard</span></a>
+                        <a asp-controller="ParentStudentLinks" asp-action="Index" class="sidebar-link @(currentController == "ParentStudentLinks" ? "active" : "")" aria-current="@(currentController == "ParentStudentLinks" ? "page" : null)"><i class="bi bi-people"></i><span class="nav-label">Relationships</span></a>
+                    } else {
                     <a asp-controller="Dashboard"
                         asp-action="Finance"
                         class="sidebar-link @(isFinanceDashboard ? "active" : "")"
@@ -147,16 +151,17 @@
                         <span class="nav-label">Shared Finance</span>
                     </a>
 
-                    <a href="#" class="sidebar-link"
-                        title="Parental Monitoring">
+                    <a asp-controller="ParentalMonitoring" asp-action="Index" class="sidebar-link @(currentController == "ParentalMonitoring" ? "active" : "")"
+                        aria-current="@(currentController == "ParentalMonitoring" ? "page" : null)" title="Parental Monitoring">
                         <i class="bi bi-person-heart"></i>
                         <span class="nav-label">Parental Monitoring</span>
                     </a>
 
-                    <a href="#" class="sidebar-link"
-                        title="Notifications">
+                    <a asp-controller="Notifications" asp-action="Index" class="sidebar-link notifications-link @(currentController == "Notifications" ? "active" : "")"
+                        aria-current="@(currentController == "Notifications" ? "page" : null)" title="Notifications">
                         <i class="bi bi-bell"></i>
                         <span class="nav-label">Notifications</span>
+                        <span id="notificationUnreadCount" class="badge bg-danger notification-count" data-count-url="@Url.Action("UnreadCount", "Notifications")" hidden></span>
                     </a>
 
                     <a href="#" class="sidebar-link"
@@ -165,6 +170,7 @@
                         <span class="nav-label">Settings</span>
                     </a>
 
+                    }
                 </nav>
             </div>
             <div class="sidebar-footer">
@@ -282,6 +288,7 @@
     <script src="~/js/dashboard-layout.js"
             asp-append-version="true"></script>
 
+    <script src="~/js/notifications.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

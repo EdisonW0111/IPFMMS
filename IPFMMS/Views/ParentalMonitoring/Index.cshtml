@@ -1,0 +1,32 @@
+@model IPFMMS.ViewModels.MonitoringLinksIndexViewModel
+@{ ViewData["Title"]="Parental Monitoring"; Layout="_DashboardLayout"; }
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap gap-3 justify-content-between mb-4"><div><h2 class="fw-bold">Parental Monitoring</h2><p class="text-muted mb-0">Manage the people you monitor and who can monitor you.</p></div><div><a asp-action="SendRequest" class="btn btn-primary">Send linking request</a></div></div>
+    @if(TempData["SuccessMessage"] is string success){<div class="alert alert-success" role="status">@success</div>}
+    @if(TempData["WarningMessage"] is string warning){<div class="alert alert-warning" role="status">@warning</div>}
+    <nav aria-label="Monitoring lists" class="monitoring-tabs mb-4">
+        <a asp-action="Index" class="monitoring-tab" aria-current="@(Model.View == "all" ? "page" : null)"><span class="monitoring-tab-label">All relationships</span></a>
+        <a asp-action="Index" asp-route-view="received" class="monitoring-tab" aria-current="@(Model.View == "received" ? "page" : null)"><span class="monitoring-tab-label">Requests received</span><span class="monitoring-tab-count">@Model.ReceivedPending</span></a>
+        <a asp-action="Index" asp-route-view="sent" class="monitoring-tab" aria-current="@(Model.View == "sent" ? "page" : null)"><span class="monitoring-tab-label">Requests sent</span></a>
+        <a asp-action="Index" asp-route-view="monitoring" class="monitoring-tab" aria-current="@(Model.View == "monitoring" ? "page" : null)"><span class="monitoring-tab-label">People I monitor</span></a>
+    </nav>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4">
+        @if(Model.Links.Count == 0){<p class="mb-0">No relationships in this list yet. Send a request or check Requests received.</p>}
+        else{
+            <p class="text-muted small">@Model.Count relationship(s). An accepted link grants monitoring in one direction only.</p>
+            <p class="text-muted small d-md-none">Swipe the table to see all columns.</p>
+            <div class="table-responsive"><table class="table align-middle"><thead class="table-light"><tr><th>Person</th><th>Direction</th><th>Status</th><th>Action</th></tr></thead><tbody>
+                @foreach(var link in Model.Links){<tr><td><strong>@link.OtherName</strong><div class="text-muted small">@(link.IsRequester ? link.StudentEmail : link.RequesterEmail)</div></td><td>@(link.IsRequester ? "You → them" : "Them → you")</td><td><span class="badge @(link.HasConsent ? "bg-success" : link.Status == "Pending" ? "bg-warning text-dark" : "bg-secondary")">@link.DisplayStatus</span></td><td>@if(link.IsRequester && link.HasConsent){<a asp-action="Summary" asp-route-student="@link.StudentId" class="btn btn-sm btn-primary me-2">View summary</a>}<a asp-action="Review" asp-route-id="@link.LinkId" class="btn btn-sm btn-outline-primary">@(link.Status == "Pending" && !link.IsRequester ? "Review request" : "Manage")</a></td></tr>}
+            </tbody></table></div>
+            @if(Model.Pages > 1){<nav aria-label="Monitoring relationship pages" class="d-flex gap-2 align-items-center">
+                @if(Model.Page > 1){<a asp-action="Index" asp-route-view="@Model.View" asp-route-page="@(Model.Page-1)" class="btn btn-sm btn-outline-secondary">Previous</a>}
+                <span>Page @Model.Page of @Model.Pages</span>
+                @if(Model.Page < Model.Pages){<a asp-action="Index" asp-route-view="@Model.View" asp-route-page="@(Model.Page+1)" class="btn btn-sm btn-outline-secondary">Next</a>}
+            </nav>}
+        }
+    </div></div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/parental-monitoring.css" asp-append-version="true" />
+}

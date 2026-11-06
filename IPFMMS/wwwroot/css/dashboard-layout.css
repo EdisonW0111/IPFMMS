@@ -574,3 +574,11 @@ body {
         justify-content: flex-start;
     }
 }
+
+/* Unread notification badge also fits the compact sidebar. */
+.notifications-link { position: relative; }
+.notification-count { margin-left: auto; font-size: 11px; }
+.notification-count[hidden] { display: none; }
+@media (min-width: 769px) {
+    .sidebar-collapsed .notification-count { position: absolute; top: 5px; right: 3px; margin: 0; }
+}

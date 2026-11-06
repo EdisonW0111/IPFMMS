@@ -1,0 +1,17 @@
+@model IPFMMS.ViewModels.CreateParentStudentLinkViewModel
+@{ ViewData["Title"] = "Link Parent and Student"; Layout = "_DashboardLayout"; }
+<div class="container-fluid py-4" style="max-width:900px">
+    <h2 class="fw-bold">Link Parent and Student</h2>
+    <p class="text-muted">Establish an authorized monitoring relationship between two existing accounts.</p>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4">
+        <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+        @if(Model.Parents.Count == 0 || Model.Students.Count == 0){<div class="alert alert-info">Two different active users are required to create a relationship.</div>}
+        <form asp-action="Create" method="post">
+            <div class="mb-4"><label asp-for="ParentId" class="form-label"></label><select asp-for="ParentId" asp-items="Model.Parents" class="form-select" required><option value="">Select parent account</option></select><span asp-validation-for="ParentId" class="text-danger"></span></div>
+            <div class="mb-4"><label asp-for="UserId" class="form-label"></label><select asp-for="UserId" asp-items="Model.Students" class="form-select" required><option value="">Select student account</option></select><span asp-validation-for="UserId" class="text-danger"></span></div>
+            <p class="small text-muted">Either account can be an ordinary user. The parent is the user who will monitor the student; both keep their existing account and interface. Confirm that this is the authorized Parent–User relationship before creating the link. Linking does not change roles or financial records.</p>
+            <div class="d-flex flex-wrap gap-2"><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-primary" disabled="@(Model.Parents.Count == 0 || Model.Students.Count == 0)">Create relationship</button></div>
+        </form>
+    </div></div>
+</div>
+@section Scripts {<partial name="_ValidationScriptsPartial" />}

@@ -420,6 +420,120 @@ namespace IPFMMS.Migrations
                     b.ToTable("IncomeCategories", (string)null);
                 });
 
+            modelBuilder.Entity("IPFMMS.Models.Notification", b =>
+                {
+                    b.Property<string>("notificationId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("createdDateTime")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("eventKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<bool>("isRead")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("linkId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("notificationType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<string>("relatedUserId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int?>("requestVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("sourceMonth")
+                        .HasColumnType("date");
+
+                    b.Property<string>("title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<string>("userId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("notificationId");
+
+                    b.HasIndex("eventKey")
+                        .IsUnique();
+
+                    b.HasIndex("linkId");
+
+                    b.HasIndex("relatedUserId");
+
+                    b.HasIndex("userId", "isRead", "createdDateTime");
+
+                    b.ToTable("Notifications", (string)null);
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.ParentStudentLink", b =>
+                {
+                    b.Property<string>("linkId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime?>("acceptedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("emailSentDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("lastEmailAttemptDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("linkStatus")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("linkedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("parentId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("requestVersion")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("requestedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("userId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("linkId");
+
+                    b.HasIndex("userId");
+
+                    b.HasIndex("parentId", "userId")
+                        .IsUnique();
+
+                    b.ToTable("ParentStudentLinks", (string)null);
+                });
+
             modelBuilder.Entity("IPFMMS.Models.PasswordResetToken", b =>
                 {
                     b.Property<string>("TokenId")
@@ -782,6 +896,50 @@ namespace IPFMMS.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.Notification", b =>
+                {
+                    b.HasOne("IPFMMS.Models.ParentStudentLink", "Link")
+                        .WithMany()
+                        .HasForeignKey("linkId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("IPFMMS.Models.User", "RelatedUser")
+                        .WithMany()
+                        .HasForeignKey("relatedUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("IPFMMS.Models.User", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("userId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Link");
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("RelatedUser");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.ParentStudentLink", b =>
+                {
+                    b.HasOne("IPFMMS.Models.User", "Parent")
+                        .WithMany()
+                        .HasForeignKey("parentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IPFMMS.Models.User", "Student")
+                        .WithMany()
+                        .HasForeignKey("userId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Parent");
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("IPFMMS.Models.PasswordResetToken", b =>

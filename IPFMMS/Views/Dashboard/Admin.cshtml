@@ -1,0 +1,10 @@
+@{ ViewData["Title"] = "Admin Dashboard"; Layout = "_DashboardLayout"; }
+<div class="container-fluid py-4">
+    <h2 class="fw-bold">Admin Dashboard</h2>
+    <p class="text-muted">Manage authorized parent–student relationships.</p>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Parent–student relationships</h3>
+        <p>Link existing active accounts and manage their relationship status.</p>
+        <a asp-controller="ParentStudentLinks" asp-action="Index" class="btn btn-primary">Manage relationships</a>
+    </div></div>
+</div>

@@ -1,0 +1,11 @@
+# Consent-protected financial monitoring summary
+
+Parental Monitoring -> People I monitor -> View summary. Ordinary accounts keep their own dashboard and use the same monitoring screens. Lists and summary requests require authenticated User/Parent role. Admin functionality is unchanged.
+
+GET Summary(student, month) identifies the viewer from claims, then the summary service independently validates an Active directional ParentStudentLink with non-null acceptedDate and both active eligible accounts. Reverse links confer no permission. Pending/rejected/cancelled/disconnected/legacy-without-consent and unrelated/self targets receive 404. A current link is checked for every request, including month selection. Shared account locks serialize reads with the user-side disconnection flow; a repeatable-read transaction provides consistent source data. No financial or history writes occur.
+
+The view presents selected-month income, expense/category totals, actual savings contributions and monthly remaining, saved category budgets, current savings progress (first 20 goals by target date), recalculated Financial Health and predictions including current-month-derived upcoming provisional preview. Current month excludes activity later than Malaysia today. Goal progress is explicitly current regardless of selected month. Earlier month filters use only source records appropriate to that historical month. It does not expose receipts, free-text transaction descriptions, edit actions or owner-only controllers.
+
+FinancialHealthService.BuildAsync(includeHistory:false) and the new read-only SpendingPredictionService.BuildAsync share existing formulas. BuildAndSaveAsync still saves predictions only in the owner's own prediction page. Parent views do not run automatic deductions, budget rollover, saved score refresh or snapshot writes. Formula and original entity attributes unchanged. No migration required beyond the preceding linking migrations.
+
+Verify directional/accepted authorization, arbitrary target changes, after-disconnect denial, disabled-account denial, monthly/category/percentage-budget/savings calculations, missing data, historical filtering and mobile rendering. Tests use disposable databases and fake SMTP only. Alerts/notifications remain next increment.

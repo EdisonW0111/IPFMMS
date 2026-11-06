@@ -1,0 +1,14 @@
+@model IPFMMS.ViewModels.ParentStudentLinkRow
+@{ ViewData["Title"] = "Manage Relationship"; Layout = "_DashboardLayout"; var active = Model.Status == "Active"; }
+<div class="container-fluid py-4" style="max-width:900px">
+    <h2 class="fw-bold">Manage Relationship</h2>
+    <div class="card border-0 shadow-sm mt-4"><div class="card-body p-4">
+        <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+        <dl class="row"><dt class="col-sm-3">Parent</dt><dd class="col-sm-9">@Model.ParentName (@Model.ParentEmail)</dd><dt class="col-sm-3">Student</dt><dd class="col-sm-9">@Model.StudentName (@Model.StudentEmail)</dd><dt class="col-sm-3">Status</dt><dd class="col-sm-9">@Model.Status</dd></dl>
+        <p>@(active ? "Deactivate this relationship? The relationship record and original linked date will be retained." : "Reactivate this relationship? Both accounts must still be active users. No account role changes are required.")</p>
+        <form asp-action="SetActive" method="post" class="d-flex flex-wrap gap-2">
+            <input type="hidden" name="id" value="@Model.LinkId" /><input type="hidden" name="active" value="@((!active).ToString().ToLowerInvariant())" />
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn @(active ? "btn-outline-danger" : "btn-primary")">@(active ? "Deactivate relationship" : "Reactivate relationship")</button>
+        </form>
+    </div></div>
+</div>

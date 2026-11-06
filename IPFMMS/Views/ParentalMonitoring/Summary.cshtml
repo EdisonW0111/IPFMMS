@@ -1,0 +1,60 @@
+@model IPFMMS.ViewModels.MonitoringSummaryViewModel
+@using System.Globalization
+@{
+    ViewData["Title"]="Financial Monitoring"; Layout="_DashboardLayout";
+    var maxSpending = Math.Max(1m, Model.Categories.Select(c=>c.Amount).DefaultIfEmpty(0).Max());
+}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap gap-3 justify-content-between mb-4"><div><h2 class="fw-bold">@Model.StudentName's Financial Summary</h2><p class="text-muted mb-0">Read-only monitoring · @Model.Month.ToString("MMMM yyyy")</p></div><div><a asp-action="Index" asp-route-view="monitoring" class="btn btn-outline-secondary">People I monitor</a></div></div>
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    <form asp-action="Summary" method="get" id="monitoringMonthFilter" class="d-flex flex-wrap gap-3 align-items-end mb-4">
+        <input type="hidden" name="student" value="@Model.StudentId" />
+        <div><label for="monitoringMonth" class="form-label">Summary month</label><input type="month" name="month" id="monitoringMonth" class="form-control" value="@Model.Month.ToString("yyyy-MM")" min="1000-04" max="@ViewData["CurrentMonth"]" required /></div>
+        <button class="btn btn-outline-primary" type="submit">View month</button>
+    </form>
+    <p class="text-muted small">Monthly figures use recorded activity through @(Model.Month.Year == Model.AsOfDate.Year && Model.Month.Month == Model.AsOfDate.Month ? Model.AsOfDate.ToString("dd MMM yyyy") : Model.Month.AddMonths(1).AddDays(-1).ToString("dd MMM yyyy")). Future-dated activity is excluded.</p>
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Monthly income</div><div class="h3 fw-bold text-success mt-2 mb-0">RM @Model.Income.ToString("N2")</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Monthly spending</div><div class="h3 fw-bold text-danger mt-2 mb-0">RM @Model.Expenses.ToString("N2")</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Monthly savings contributions</div><div class="h3 fw-bold mt-2 mb-0">RM @Model.SavingsContributions.ToString("N2")</div></div></div></div>
+        <div class="col-12 col-sm-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Monthly remaining after savings</div><div class="h3 fw-bold @(Model.MonthlyRemaining < 0 ? "text-danger" : "text-success") mt-2 mb-0">RM @Model.MonthlyRemaining.ToString("N2")</div></div></div></div>
+    </div>
+    <p class="small text-muted">Monthly remaining = this month's income − expenses − savings contributions. It excludes funds carried over from earlier months and is not the user's account balance.</p>
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Spending by category</h3>
+        @if(Model.Categories.Count == 0){<p class="text-muted mb-0">No spending recorded for this month.</p>}
+        @foreach(var category in Model.Categories){<div class="mb-3"><div class="d-flex flex-wrap justify-content-between gap-2 mb-1"><span>@category.Name</span><strong>RM @category.Amount.ToString("N2")</strong></div><div class="progress" style="height:10px"><div class="progress-bar" style="background:#16899a;width:@((category.Amount/maxSpending*100).ToString("0.##",CultureInfo.InvariantCulture))%"></div></div></div>}
+    </div></section>
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Monthly budget status</h3>
+        <p class="small text-muted">Only budgets already saved by the user are included. Percentage budgets use the selected month's recorded income.</p>
+        @if(Model.Budgets.Budgets.Count == 0){<p class="text-muted mb-0">No saved budgets for this month.</p>}
+        else{
+            <p class="small text-muted d-md-none">Swipe the table to see all columns.</p>
+            <div class="table-responsive"><table class="table align-middle"><thead class="table-light"><tr><th>Category</th><th class="text-end">Limit (RM)</th><th class="text-end">Spent (RM)</th><th class="text-end">Remaining (RM)</th><th>Status</th></tr></thead><tbody>
+                @foreach(var budget in Model.Budgets.Budgets){<tr><th scope="row" class="fw-normal">@budget.CategoryName</th><td class="text-end">@budget.BudgetLimit.ToString("N2")</td><td class="text-end">@budget.AmountSpent.ToString("N2")</td><td class="text-end">@budget.Remaining.ToString("N2")</td><td><span class="badge @(budget.Status == "Healthy" ? "bg-success" : budget.Status == "Overspent" ? "bg-danger" : "bg-warning text-dark")">@budget.Status</span></td></tr>}
+            </tbody></table></div>
+            <p class="small text-muted mb-0">Spending in categories without a saved budget: RM @Model.Budgets.UnbudgetedSpending.ToString("N2").</p>
+        }
+    </div></section>
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Savings goals · current progress</h3>
+        <p class="small text-muted">Progress through @Model.AsOfDate.ToString("dd MMM yyyy"), regardless of the selected summary month.</p>
+        @if(Model.Goals.Count == 0){<p class="text-muted mb-0">No savings goals recorded.</p>}
+        @if(Model.GoalCount > Model.Goals.Count){<p class="small text-muted">Showing the @Model.Goals.Count goals with the earliest target dates out of @Model.GoalCount goals.</p>}
+        @foreach(var goal in Model.Goals){<div class="mb-3"><div class="d-flex flex-wrap gap-2 justify-content-between"><strong>@goal.GoalName</strong><span>@goal.DisplayStatus</span></div><div class="small text-muted my-1">RM @goal.TotalSaved.ToString("N2") of RM @goal.TargetAmount.ToString("N2") · Target @goal.TargetDate.ToString("dd MMM yyyy")</div><div class="progress" style="height:10px"><div class="progress-bar" style="background:#16899a;width:@goal.ProgressPercent.ToString("0.##",CultureInfo.InvariantCulture)%"></div></div></div>}
+    </div></section>
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Financial Health · @Model.Month.ToString("MMMM yyyy")</h3>
+        @if(Model.Health.Overall.HasValue){<div class="h2 fw-bold">@Model.Health.Overall.Value.ToString("0.##") / 100</div><partial name="_FinancialHealthRating" model="Model.Health.Rating" />}
+        else{<p class="text-muted">Not enough data to calculate the overall score.</p>}
+        @if(Model.Health.IsProvisional){<p class="text-muted small mt-2">Current-month score is provisional.</p>}
+        <div class="row g-3 mt-2"><div class="col-12 col-md-4">Savings ratio (40%): <strong>@(Model.Health.SavingsScore?.ToString("0.##") ?? "Unavailable")</strong></div><div class="col-12 col-md-4">Budget adherence (30%): <strong>@(Model.Health.BudgetScore?.ToString("0.##") ?? "Unavailable")</strong></div><div class="col-12 col-md-4">Spending stability (30%): <strong>@(Model.Health.StabilityScore?.ToString("0.##") ?? "Unavailable")</strong></div></div>
+        @if(Model.Health.MissingData.Count > 0){<ul class="small text-muted mt-3 mb-0">@foreach(var reason in Model.Health.MissingData){<li>@reason</li>}</ul>}
+    </div></section>
+    <div class="row g-4 mb-4"><div class="col-12 @(Model.Prediction.NextMonthPreview != null ? "col-lg-6" : "")"><partial name="_MonitoringPrediction" model="Model.Prediction" /></div>
+        @if(Model.Prediction.NextMonthPreview is { } preview){<div class="col-12 col-lg-6"><partial name="_MonitoringPrediction" model="preview" /></div>}
+    </div>
+    <p class="small text-muted">These summaries are calculated from the user's records. Viewing them does not change transactions, budgets, savings contributions or saved score history.</p>
+</div>
+@section Scripts {<script>document.getElementById('monitoringMonth').addEventListener('change',()=>{const f=document.getElementById('monitoringMonthFilter');if(f.reportValidity())f.requestSubmit();});</script>}

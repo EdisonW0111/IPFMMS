@@ -1,0 +1,36 @@
+@model IPFMMS.ViewModels.MonitoringLinkViewModel
+@{ ViewData["Title"]="Review Monitoring Link"; Layout="_DashboardLayout"; }
+<div class="container-fluid py-4" style="max-width:900px">
+    <h2 class="fw-bold">Monitoring Link</h2>
+    @if(TempData["WarningMessage"] is string warning){<div class="alert alert-warning" role="status">@warning</div>}
+    @if(TempData["SuccessMessage"] is string success){<div class="alert alert-success" role="status">@success</div>}
+    <div class="card border-0 shadow-sm mt-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">@Model.OtherName</h3><p class="text-muted">@(Model.IsRequester ? Model.StudentEmail : Model.RequesterEmail)</p>
+        <p><strong>Status:</strong> @Model.DisplayStatus</p>
+        <p>@(Model.IsRequester ? "This request asks for permission for you to monitor this person's financial summaries." : "This person is asking to monitor your financial summaries, including spending, budgets, savings progress, financial health and predictions.")</p>
+        @if(Model.Status == "Pending"){
+            @if(!Model.IsRequester){
+                <p>Accept only if you authorize this access. They cannot edit your financial records. You can disconnect later, and accepting does not give you access to their information.</p>
+                <form asp-action="Respond" method="post" class="d-flex flex-wrap gap-2 mb-3"><input type="hidden" name="id" value="@Model.LinkId" /><input type="hidden" name="version" value="@Model.Version" /><button name="response" value="Accept" class="btn btn-primary">Accept request</button><button name="response" value="Reject" class="btn btn-outline-danger">Reject request</button></form>
+            } else {
+                <p>Waiting for the recipient to accept or reject. No monitoring access has been granted.</p>
+                <p class="small text-muted">@(Model.EmailSentDate.HasValue ? "The email was sent. You may resend it after one minute." : "No successful email delivery has been recorded. The recipient can still find this request in Parental Monitoring.")</p>
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <form asp-action="Resend" method="post"><input type="hidden" name="id" value="@Model.LinkId" /><input type="hidden" name="version" value="@Model.Version" /><button class="btn btn-outline-primary">Resend email</button></form>
+                    <form asp-action="Cancel" method="post"><input type="hidden" name="id" value="@Model.LinkId" /><input type="hidden" name="version" value="@Model.Version" /><button class="btn btn-outline-danger">Cancel request</button></form>
+                </div>
+            }
+        } else if(Model.Status == "Active"){
+            @if(!Model.AcceptedDate.HasValue){<p class="text-warning">This relationship has no recorded acceptance. A new request must be sent and accepted before monitoring is authorized.</p>}
+            else if(!Model.AccountsEligible){<p class="text-muted">Monitoring is unavailable because both accounts must be active eligible users.</p>}
+            else{<p>@(Model.IsRequester ? "Your monitoring permission is active." : "You have allowed this person to monitor your financial summaries.")</p>}
+            @if(Model.IsRequester && Model.HasConsent){<a asp-action="Summary" asp-route-student="@Model.StudentId" class="btn btn-primary mb-3">View financial summary</a>}
+            <p>Disconnecting ends monitoring access. Linking again requires a new request and acceptance.</p>
+            <form asp-action="Disconnect" method="post" class="mb-3"><input type="hidden" name="id" value="@Model.LinkId" /><input type="hidden" name="version" value="@Model.Version" /><button class="btn btn-outline-danger">Disconnect</button></form>
+        } else {
+            <p>No monitoring access is granted by this relationship.</p>
+            @if(Model.IsRequester){<a asp-action="SendRequest" class="btn btn-primary mb-3">Send a new request</a>}
+        }
+        <a asp-action="Index" class="btn btn-outline-secondary">Back to relationships</a>
+    </div></div>
+</div>

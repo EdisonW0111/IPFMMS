@@ -1,0 +1,16 @@
+@model IPFMMS.ViewModels.SendMonitoringRequestViewModel
+@{ ViewData["Title"]="Send Monitoring Request"; Layout="_DashboardLayout"; }
+<div class="container-fluid py-4" style="max-width:850px">
+    <h2 class="fw-bold">Send Monitoring Request</h2>
+    <p class="text-muted">Ask another user for permission to view their financial summaries.</p>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4">
+        <form asp-action="SendRequest" method="post">
+            <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+            <div class="mb-4"><label asp-for="Email" class="form-label"></label><input asp-for="Email" type="email" class="form-control" autocomplete="email" required /><span asp-validation-for="Email" class="text-danger"></span></div>
+            <p>The recipient will receive an email and can accept or reject in their own account. You receive no access until they accept, and either of you can disconnect later.</p>
+            <p class="small text-muted">You both keep your existing accounts. Each request covers one direction of monitoring; a reverse link needs its own acceptance.</p>
+            <div class="d-flex gap-2 flex-wrap"><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-primary">Send request</button></div>
+        </form>
+    </div></div>
+</div>
+@section Scripts {<partial name="_ValidationScriptsPartial" />}

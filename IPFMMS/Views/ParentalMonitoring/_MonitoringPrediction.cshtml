@@ -1,0 +1,14 @@
+@model IPFMMS.ViewModels.SpendingPredictionViewModel
+@{ var provisional=Model.ProjectionAsOf.HasValue; }
+<section class="card border-0 shadow-sm h-100"><div class="card-body p-4">
+    <h3 class="h5 fw-bold">@(provisional ? "Early prediction" : "Spending prediction") · @Model.Month.ToString("MMMM yyyy")</h3>
+    @if(provisional){<span class="badge bg-warning text-dark mb-3">Provisional</span>}
+    @if(Model.PredictedAmount.HasValue){<div class="h2 fw-bold">RM @Model.PredictedAmount.Value.ToString("N2")</div><span class="badge @(Model.Trend == "Increasing" ? "bg-danger" : Model.Trend == "Decreasing" ? "bg-success" : "bg-secondary")">@Model.Trend</span>}
+    else{<p class="text-muted">Not enough recorded spending data for the three required months.</p>}
+    <p class="small text-muted mt-3">@(provisional ? "Trend compares against the projected current-month total." : "Trend compares against the latest completed month's spending.")</p>
+    @if(provisional){<p class="small">Current-month projection: RM @Model.MonthToDateSpending.ToString("N2") ÷ @Model.ElapsedDays calendar day(s) × @Model.DaysInMonth days = RM @Model.Months.Last().Amount.ToString("N2"). Assumes the daily spending pace continues.</p>}
+    <details><summary class="fw-semibold small">Prediction inputs</summary><div class="mt-3">
+        @foreach(var source in Model.Months){<p class="small mb-2">@source.Month.ToString("MMM yyyy"): @(source.Count > 0 ? "RM " + source.Amount.ToString("N2") : "Missing records") × @((source.Weight*100).ToString("0"))% @(provisional && source == Model.Months.Last() ? "(projected)" : "")</p>}
+        <p class="small text-muted mb-0">Weighted amounts are added and rounded to cents. Predictions are estimates, not spending limits.</p>
+    </div></details>
+</div></section>

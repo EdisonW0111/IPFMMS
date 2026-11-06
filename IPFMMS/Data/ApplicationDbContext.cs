@@ -11,6 +11,8 @@ namespace IPFMMS.Data
         {
         }
 
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<ParentStudentLink> ParentStudentLinks { get; set; }
         public DbSet<SpendingPrediction> SpendingPredictions { get; set; }
         public DbSet<FinancialHealthRecord> FinancialHealthRecords { get; set; }
         public DbSet<User> Users { get; set; }
@@ -32,6 +34,26 @@ namespace IPFMMS.Data
             ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Notification>(entity =>
+            {
+                entity.ToTable("Notifications");
+                entity.HasKey(n => n.notificationId);
+                entity.Property(n => n.notificationId).ValueGeneratedNever();
+                entity.HasIndex(n => n.eventKey).IsUnique();
+                entity.HasIndex(n => new { n.userId, n.isRead, n.createdDateTime });
+                entity.HasOne(n => n.Receiver).WithMany().HasForeignKey(n => n.userId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(n => n.RelatedUser).WithMany().HasForeignKey(n => n.relatedUserId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(n => n.Link).WithMany().HasForeignKey(n => n.linkId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<ParentStudentLink>(entity =>
+            {
+                entity.ToTable("ParentStudentLinks");
+                entity.HasKey(l => l.linkId);
+                entity.Property(l => l.linkId).ValueGeneratedNever();
+                entity.HasIndex(l => new { l.parentId, l.userId }).IsUnique();
+                entity.HasOne(l => l.Parent).WithMany().HasForeignKey(l => l.parentId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(l => l.Student).WithMany().HasForeignKey(l => l.userId).OnDelete(DeleteBehavior.Restrict);
+            });
             modelBuilder.Entity<SpendingPrediction>(entity =>
             {
                 entity.ToTable("SpendingPredictions");
