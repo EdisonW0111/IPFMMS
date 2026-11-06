@@ -3,6 +3,13 @@
     if (!badge) return;
     const link = badge.closest('a');
     let busy = false;
+    document.addEventListener('notifications:updated', event => {
+        const count = event.detail?.count;
+        if (!Number.isInteger(count) || count < 0) return;
+        badge.textContent = count > 99 ? '99+' : String(count);
+        badge.hidden = count === 0;
+        link.setAttribute('aria-label', `Notifications, ${count} unread`);
+    });
     async function refresh() {
         if (busy || document.hidden) return;
         busy = true;

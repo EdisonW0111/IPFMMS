@@ -6,7 +6,7 @@ using IPFMMS.Models;
 using Microsoft.EntityFrameworkCore;
 namespace IPFMMS.Services;
 public sealed class MonitoringAlertService(ApplicationDbContext db, IdGeneratorService ids,
-    MonitoringLinkService links, FinancialHealthService health)
+    MonitoringLinkService links, FinancialHealthService health, NotificationEmailService email)
 {
     public const decimal LowHealthThreshold = 40m;
     public async Task RefreshAsync(string recipient, DateTime today, CancellationToken ct = default)
@@ -43,7 +43,7 @@ public sealed class MonitoringAlertService(ApplicationDbContext db, IdGeneratorS
                 {
                     notificationId = await ids.GenerateIdAsync("NTF"), userId = recipient, relatedUserId = candidate.userId,
                     notificationType = type, title = title, message = message, createdDateTime = DateTime.UtcNow,
-                    eventKey = key, linkId = link.linkId, requestVersion = link.requestVersion, sourceMonth = month
+                    eventKey = key, linkId = link.linkId, requestVersion = link.requestVersion, sourceMonth = month, emailStatus = "Pending"
                 });
             }
             string Money(decimal amount) => amount.ToString("N2", CultureInfo.InvariantCulture);
@@ -62,5 +62,6 @@ public sealed class MonitoringAlertService(ApplicationDbContext db, IdGeneratorS
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
         }
+        await email.DeliverPendingAsync(recipient, ct);
     }
 }

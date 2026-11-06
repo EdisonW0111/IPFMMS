@@ -12,6 +12,10 @@ public class Notification
     [Required, StringLength(2000)] public string message { get; set; } = "";
     public DateTime createdDateTime { get; set; }
     public bool isRead { get; set; }
+    // Delivery state is separate from read/unread state.
+    [Required, StringLength(20)] public string emailStatus { get; set; } = "NotRequested";
+    public DateTime? emailAttemptedDate { get; set; }
+    public DateTime? emailSentDate { get; set; }
     // Additional consent/deduplication metadata.
     [Required, StringLength(64)] public string eventKey { get; set; } = "";
     [StringLength(20)] public string? linkId { get; set; }

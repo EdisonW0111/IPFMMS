@@ -39,6 +39,7 @@ namespace IPFMMS.Data
                 entity.ToTable("Notifications");
                 entity.HasKey(n => n.notificationId);
                 entity.Property(n => n.notificationId).ValueGeneratedNever();
+                entity.Property(n => n.emailStatus).HasDefaultValue("NotRequested");
                 entity.HasIndex(n => n.eventKey).IsUnique();
                 entity.HasIndex(n => new { n.userId, n.isRead, n.createdDateTime });
                 entity.HasOne(n => n.Receiver).WithMany().HasForeignKey(n => n.userId).OnDelete(DeleteBehavior.Restrict);

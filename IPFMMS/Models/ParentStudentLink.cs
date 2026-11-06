@@ -10,6 +10,8 @@ public class ParentStudentLink
     [Required, StringLength(20)] public string userId { get; set; } = "";
     public DateTime linkedDate { get; set; }
     [Required, StringLength(20)] public string linkStatus { get; set; } = "Active";
+    public DateTime? parentHiddenDate { get; set; }
+    public DateTime? studentHiddenDate { get; set; }
     // Request/consent metadata supplements the five original diagram attributes.
     public DateTime? requestedDate { get; set; }
     public DateTime? acceptedDate { get; set; }

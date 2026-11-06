@@ -12,7 +12,7 @@ public sealed class ParentalMonitoringController(ApplicationDbContext db, Monito
 {
     private string Owner => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
     private IQueryable<MonitoringLinkViewModel> Rows(string owner) => db.ParentStudentLinks.AsNoTracking()
-        .Where(l => l.parentId == owner || l.userId == owner).Select(l => new MonitoringLinkViewModel
+        .Where(l => (l.parentId == owner && l.parentHiddenDate == null) || (l.userId == owner && l.studentHiddenDate == null)).Select(l => new MonitoringLinkViewModel
         {
             LinkId = l.linkId, RequesterId = l.parentId, StudentId = l.userId,
             RequesterName = l.Parent!.FullName, RequesterEmail = l.Parent.Email,
@@ -120,4 +120,26 @@ public sealed class ParentalMonitoringController(ApplicationDbContext db, Monito
         catch (InvalidOperationException ex) { TempData["WarningMessage"] = ex.Message; }
         return RedirectToAction(nameof(Review), new { id });
     }
+    [HttpGet]
+    public async Task<IActionResult> Delete(string id, CancellationToken ct = default)
+    {
+        if (Owner == "") return Challenge();
+        var model = await Rows(Owner).SingleOrDefaultAsync(l => l.LinkId == id, ct);
+        if (model == null) return NotFound();
+        if (model.Status != "Inactive" && model.Status != "Rejected") return BadRequest();
+        return View(model);
+    }
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteConfirmed(string id, int version, CancellationToken ct = default)
+    {
+        if (Owner == "") return Challenge();
+        try
+        {
+            if (!await links.DeleteFromListAsync(Owner, id, version, ct)) return NotFound();
+            TempData["SuccessMessage"] = "Relationship deleted from your list.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (InvalidOperationException ex) { TempData["WarningMessage"] = ex.Message; return RedirectToAction(nameof(Review), new { id }); }
+    }
+
 }

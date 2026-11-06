@@ -31,6 +31,7 @@
             <p>No monitoring access is granted by this relationship.</p>
             @if(Model.IsRequester){<a asp-action="SendRequest" class="btn btn-primary mb-3">Send a new request</a>}
         }
+        @if(Model.Status == "Inactive" || Model.Status == "Rejected"){<a asp-action="Delete" asp-route-id="@Model.LinkId" class="btn btn-outline-danger me-2">Delete relationship</a>}
         <a asp-action="Index" class="btn btn-outline-secondary">Back to relationships</a>
     </div></div>
 </div>

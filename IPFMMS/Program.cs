@@ -38,6 +38,8 @@ builder.Services.AddScoped<MonitoringLinkService>();
 builder.Services.AddScoped<MonitoringSummaryService>();
 builder.Services.AddScoped<MonitoringAlertService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<NotificationEmailService>();
+builder.Services.AddScoped<IAlertEmailSender, AlertEmailSender>();
 builder.Services.AddScoped<IParentLinkEmailSender, ParentLinkEmailSender>();
 builder.Services.AddScoped<AutomaticSavingsService>();
 builder.Services.AddHostedService<AutomaticSavingsWorker>();

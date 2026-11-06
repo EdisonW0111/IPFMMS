@@ -1,30 +1,16 @@
 @model IPFMMS.ViewModels.NotificationsViewModel
 @{ ViewData["Title"]="Notifications"; Layout="_DashboardLayout"; }
 <div class="container-fluid py-4">
-    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-start mb-4"><div><h2 class="fw-bold">Notifications</h2><p class="text-muted mb-0">Alerts for people who have accepted your monitoring requests.</p></div><div><span class="badge bg-danger px-3 py-2">@Model.UnreadCount unread</span></div></div>
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-start mb-4"><div><h2 class="fw-bold">Notifications</h2><p class="text-muted mb-0">Alerts for people who have accepted your monitoring requests.</p></div><div><span id="notificationPageUnread" class="badge bg-danger px-3 py-2">@Model.UnreadCount unread</span></div></div>
     <p class="small text-muted">Checks use this month's records through today. Budget alerts are sent once per category/month and low-score alerts once per month for each accepted link. Alerts show figures when first detected; the summary shows current figures.</p>
-    <form asp-action="Index" method="get" class="d-flex flex-wrap gap-3 align-items-end mb-4">
+    <form asp-action="Index" method="get" id="notificationFilters" class="d-flex flex-wrap gap-3 align-items-end mb-4">
         <div><label for="notificationType" class="form-label">Alert type</label><select id="notificationType" name="type" class="form-select"><option value="all" selected="@(Model.Type=="all")">All alerts</option><option value="BudgetOverspending" selected="@(Model.Type=="BudgetOverspending")">Budget overspending</option><option value="LowFinancialHealth" selected="@(Model.Type=="LowFinancialHealth")">Low Financial Health</option></select></div>
         <div><label for="notificationRead" class="form-label">Read status</label><select id="notificationRead" name="read" class="form-select"><option value="all" selected="@(Model.Read=="all")">All</option><option value="unread" selected="@(Model.Read=="unread")">Unread</option><option value="read" selected="@(Model.Read=="read")">Read</option></select></div>
-        <button class="btn btn-outline-primary" type="submit">Filter</button><a asp-action="Index" class="btn btn-outline-secondary">Reset</a>
+        <button id="notificationFilterButton" class="btn btn-outline-primary" type="submit">Filter</button><a asp-action="Index" id="notificationReset" class="btn btn-outline-secondary">Reset</a>
     </form>
-    @if(Model.UnreadCount>0){<form asp-action="MarkAllRead" method="post" class="mb-4"><button class="btn btn-outline-secondary" type="submit">Mark all as read</button></form>}
-    @if(Model.Notifications.Count==0){<div class="card border-0 shadow-sm"><div class="card-body p-4"><h3 class="h5 fw-bold">No matching notifications</h3><p class="text-muted mb-0">New alerts appear when an accepted linked user's recorded spending exceeds a budget or their available Financial Health score falls below 40.</p></div></div>}
-    @foreach(var notification in Model.Notifications){
-        <article class="card border-0 shadow-sm mb-3"><div class="card-body p-4">
-            <div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><h3 class="h5 fw-bold mb-0">@notification.title</h3><span class="badge @(notification.isRead ? "bg-secondary" : "bg-primary")">@(notification.isRead?"Read":"Unread")</span></div>
-            <p class="small text-muted">@DateTime.SpecifyKind(notification.createdDateTime,DateTimeKind.Utc).AddHours(8).ToString("dd MMM yyyy HH:mm") MYT · @(notification.notificationType=="BudgetOverspending"?"Budget overspending":"Low Financial Health")</p>
-            <p>@notification.message</p>
-            <div class="d-flex flex-wrap gap-2 align-items-center">
-                @if(notification.relatedUserId!=null){<a asp-controller="ParentalMonitoring" asp-action="Summary" asp-route-student="@notification.relatedUserId" asp-route-month="@notification.sourceMonth?.ToString("yyyy-MM")" class="btn btn-outline-primary btn-sm">View financial summary</a>}
-                <form asp-action="SetRead" method="post"><input type="hidden" name="id" value="@notification.notificationId" /><input type="hidden" name="read" value="@((!notification.isRead).ToString().ToLowerInvariant())" /><button class="btn btn-outline-secondary btn-sm" type="submit">@(notification.isRead?"Mark as unread":"Mark as read")</button></form>
-            </div>
-        </div></article>
-    }
-    @if(Model.Pages>1){<nav aria-label="Notification pages" class="d-flex align-items-center gap-2 mt-4">
-        @if(Model.Page>1){<a asp-action="Index" asp-route-type="@Model.Type" asp-route-read="@Model.Read" asp-route-page="@(Model.Page-1)" class="btn btn-outline-secondary btn-sm">Previous</a>}
-        <span>Page @Model.Page of @Model.Pages</span>
-        @if(Model.Page<Model.Pages){<a asp-action="Index" asp-route-type="@Model.Type" asp-route-read="@Model.Read" asp-route-page="@(Model.Page+1)" class="btn btn-outline-secondary btn-sm">Next</a>}
-    </nav>}
+    <div id="notificationFilterError" class="alert alert-warning" role="alert" hidden></div>
+    <partial name="_NotificationResults" model="Model" />
     <p class="small text-muted mt-4 mb-0">Notifications refresh when you open this page and while the app is visible. Current-month health scores are provisional. Notifications from a link are hidden after disconnection, and new requests need fresh acceptance.</p>
 </div>
+
+@section Scripts {<script src="~/js/notification-filters.js" asp-append-version="true"></script>}

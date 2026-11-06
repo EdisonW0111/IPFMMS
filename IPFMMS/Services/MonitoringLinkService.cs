@@ -33,6 +33,8 @@ public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorSe
             link = new() { linkId = await ids.GenerateIdAsync("PSL"), parentId = actor, userId = recipientId, linkedDate = now };
             db.ParentStudentLinks.Add(link);
         }
+        link.parentHiddenDate = null;
+        link.studentHiddenDate = null;
         link.linkStatus = "Pending";
         link.requestVersion++;
         link.requestedDate = now;
@@ -109,9 +111,26 @@ public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorSe
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return true;
     }
 
+    public async Task<bool> DeleteFromListAsync(string actor, string id, int version, CancellationToken ct = default)
+    {
+        var pair = await db.ParentStudentLinks.AsNoTracking().Where(l => l.linkId == id && (l.parentId == actor || l.userId == actor))
+            .Select(l => new { l.parentId, l.userId }).SingleOrDefaultAsync(ct);
+        if (pair == null) return false;
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+        await LockUsers(pair.parentId, pair.userId, ct);
+        var link = await db.ParentStudentLinks.SingleOrDefaultAsync(l => l.linkId == id, ct);
+        if (link == null) return false;
+        if (link.requestVersion != version) throw new InvalidOperationException("This relationship has changed. Refresh before deleting.");
+        if (link.linkStatus != "Inactive" && link.linkStatus != "Rejected")
+            throw new InvalidOperationException("Only inactive or rejected relationships can be deleted from your list.");
+        if (link.parentId == actor) link.parentHiddenDate = DateTime.UtcNow;
+        else link.studentHiddenDate = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return true;
+    }
+
     // Shared authorization guard for the upcoming read-only monitoring endpoints.
     public Task<bool> CanMonitorAsync(string actor, string student, CancellationToken ct = default) => db.ParentStudentLinks.AsNoTracking()
-        .AnyAsync(l => l.parentId == actor && l.userId == student && l.linkStatus == "Active" && l.acceptedDate != null
+        .AnyAsync(l => l.parentId == actor && l.userId == student && l.linkStatus == "Active" && l.acceptedDate != null && l.parentHiddenDate == null && l.studentHiddenDate == null
             && l.Parent!.AccountStatus == AccountStatus.Active && l.Student!.AccountStatus == AccountStatus.Active
             && (l.Parent.Role == "User" || l.Parent.Role == "Parent") && (l.Student.Role == "User" || l.Student.Role == "Parent"), ct);
 }

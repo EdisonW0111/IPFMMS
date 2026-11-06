@@ -429,6 +429,19 @@ namespace IPFMMS.Migrations
                     b.Property<DateTime>("createdDateTime")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("emailAttemptedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("emailSentDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("emailStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)")
+                        .HasDefaultValue("NotRequested");
+
                     b.Property<string>("eventKey")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -508,6 +521,9 @@ namespace IPFMMS.Migrations
                     b.Property<DateTime>("linkedDate")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("parentHiddenDate")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("parentId")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -517,6 +533,9 @@ namespace IPFMMS.Migrations
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("requestedDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("studentHiddenDate")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("userId")
