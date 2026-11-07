@@ -367,6 +367,12 @@ namespace IPFMMS.Controllers
                 return NotFound();
             }
 
+            if(await _context.RoutineBillPayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is a recorded bill payment. View it in Routine Bills payment history.";
+                return RedirectToAction("History","RoutineBills");
+            }
+
             // 3. Populate the Edit Expense form.
             var model = new EditExpenseViewModel
             {
@@ -459,6 +465,12 @@ namespace IPFMMS.Controllers
             if (expense == null)
             {
                 return NotFound();
+            }
+
+            if(await _context.RoutineBillPayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is a recorded bill payment. View it in Routine Bills payment history.";
+                return RedirectToAction("History","RoutineBills");
             }
 
             // 3. Read existing receipt information from MySQL.
@@ -752,6 +764,12 @@ namespace IPFMMS.Controllers
             if (expense == null)
             {
                 return NotFound();
+            }
+
+            if(await _context.RoutineBillPayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is a recorded bill payment. View it in Routine Bills payment history.";
+                return RedirectToAction("History","RoutineBills");
             }
 
             // 3. Remember the receipt before deleting the record.

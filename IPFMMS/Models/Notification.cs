@@ -16,6 +16,8 @@ public class Notification
     [Required, StringLength(20)] public string emailStatus { get; set; } = "NotRequested";
     public DateTime? emailAttemptedDate { get; set; }
     public DateTime? emailSentDate { get; set; }
+    [StringLength(20)] public string? routineBillId { get; set; }
+    [Column(TypeName="date")] public DateTime? billDueDate { get; set; }
     // Additional consent/deduplication metadata.
     [Required, StringLength(64)] public string eventKey { get; set; } = "";
     [StringLength(20)] public string? linkId { get; set; }

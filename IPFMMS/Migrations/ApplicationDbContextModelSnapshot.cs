@@ -426,6 +426,9 @@ namespace IPFMMS.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<DateTime?>("billDueDate")
+                        .HasColumnType("date");
+
                     b.Property<DateTime>("createdDateTime")
                         .HasColumnType("datetime(6)");
 
@@ -470,6 +473,10 @@ namespace IPFMMS.Migrations
 
                     b.Property<int?>("requestVersion")
                         .HasColumnType("int");
+
+                    b.Property<string>("routineBillId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<DateTime?>("sourceMonth")
                         .HasColumnType("date");
@@ -586,6 +593,124 @@ namespace IPFMMS.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("PasswordResetTokens", (string)null);
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.RoutineBill", b =>
+                {
+                    b.Property<string>("billId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("amount")
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("billName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("billType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<DateTime>("createdDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("description")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime>("dueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("expenseCategoryId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("frequency")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("paymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<int>("recurrenceAnchorDay")
+                        .HasColumnType("int");
+
+                    b.Property<int>("reminderPeriod")
+                        .HasColumnType("int");
+
+                    b.Property<string>("status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("userId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("billId");
+
+                    b.HasIndex("expenseCategoryId");
+
+                    b.HasIndex("userId", "status", "dueDate");
+
+                    b.ToTable("RoutineBills", (string)null);
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.RoutineBillPayment", b =>
+                {
+                    b.Property<string>("paymentId")
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<decimal>("amount")
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("billId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("billNameSnapshot")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("createdDate")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("dueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("expenseId")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<DateTime>("paidDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("paymentMethod")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.HasKey("paymentId");
+
+                    b.HasIndex("expenseId")
+                        .IsUnique();
+
+                    b.HasIndex("billId", "dueDate")
+                        .IsUnique();
+
+                    b.ToTable("RoutineBillPayments", (string)null);
                 });
 
             modelBuilder.Entity("IPFMMS.Models.SavingsAutomaticAttempt", b =>
@@ -970,6 +1095,44 @@ namespace IPFMMS.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.RoutineBill", b =>
+                {
+                    b.HasOne("IPFMMS.Models.ExpenseCategory", "ExpenseCategory")
+                        .WithMany()
+                        .HasForeignKey("expenseCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IPFMMS.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("userId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ExpenseCategory");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("IPFMMS.Models.RoutineBillPayment", b =>
+                {
+                    b.HasOne("IPFMMS.Models.RoutineBill", "Bill")
+                        .WithMany()
+                        .HasForeignKey("billId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("IPFMMS.Models.Expense", "Expense")
+                        .WithMany()
+                        .HasForeignKey("expenseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Bill");
+
+                    b.Navigation("Expense");
                 });
 
             modelBuilder.Entity("IPFMMS.Models.SavingsAutomaticAttempt", b =>

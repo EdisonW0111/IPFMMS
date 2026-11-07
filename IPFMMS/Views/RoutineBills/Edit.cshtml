@@ -1,0 +1,14 @@
+@model IPFMMS.ViewModels.EditRoutineBillViewModel
+@{ ViewData["Title"]="Edit Bill or Subscription"; Layout="_DashboardLayout"; }
+<div class="container-fluid py-4" style="max-width:1000px">
+    <h2 class="fw-bold">Edit Bill or Subscription</h2><p class="text-muted mb-4">Update the planned payment while keeping past payments unchanged.</p>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4 p-md-5">
+        <form asp-action="Edit" asp-route-id="@Model.BillId" method="post">
+            <input asp-for="BillId" type="hidden" /><input asp-for="EditStamp" type="hidden" />
+            <partial name="_RoutineBillFields" model="Model" />
+            <div class="mb-4"><label asp-for="Status" class="form-label"></label><select asp-for="Status" class="form-select"><option value="Active">Active</option><option value="Inactive">Inactive</option>@if(Model.Status=="Completed"){<option value="Completed">Completed</option>}</select><span asp-validation-for="Status" class="text-danger"></span><p class="small text-muted mt-1">Inactive schedules are excluded from upcoming and overdue counts.</p></div>
+            <div class="d-flex flex-wrap gap-2 justify-content-end"><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><a asp-action="Edit" asp-route-id="@Model.BillId" class="btn btn-outline-secondary">Reload edit page</a><button type="submit" class="btn btn-primary">Save changes</button></div>
+        </form>
+    </div></div>
+</div>
+@section Scripts {<script src="~/lib/jquery/dist/jquery.min.js"></script><partial name="_ValidationScriptsPartial" />}

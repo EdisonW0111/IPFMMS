@@ -1,0 +1,22 @@
+@model IPFMMS.ViewModels.RoutineBillHistoryViewModel
+@{ ViewData["Title"]="Bill Payment History"; Layout="_DashboardLayout"; }
+<div class="container-fluid py-4">
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-4"><div><h2 class="fw-bold">Bill Payment History</h2><p class="text-muted mb-0">Recorded payments and their linked expenses, including deleted schedules.</p></div><div><a asp-action="Index" class="btn btn-outline-secondary">Back to bills</a></div></div>
+@if(TempData["SuccessMessage"] is string success){<div class="alert alert-success" role="status">@success</div>}
+@if(TempData["WarningMessage"] is string warning){<div class="alert alert-warning" role="alert">@warning</div>}
+<div class="card border-0 shadow-sm"><div class="card-body p-4">
+<p class="small text-muted">Each payment creates one expense and counts toward spending on its payment date. Payment records and linked expenses are read-only to keep this history consistent.</p>
+<form id="billHistoryFilters" asp-action="History" method="get" class="row g-3 align-items-start mb-4">
+@if(!string.IsNullOrEmpty(Model.ExpenseId)){<input type="hidden" name="expenseId" value="@Model.ExpenseId"/>}
+<div class="col-12 col-lg-5"><label for="historySearch" class="form-label">Search</label><input id="historySearch" name="search" value="@Model.Search" maxlength="100" placeholder="Bill name or expense reference" type="search" class="form-control"/></div>
+<div class="col-12 col-sm-6 col-lg-3"><label for="historyMonth" class="form-label">Payment month</label><input id="historyMonth" name="month" value="@Model.Month" type="month" min="1000-01" max="9998-12" class="form-control"/><div class="form-text">Leave blank for all months.</div></div>
+<div class="col-12 col-sm-6 col-lg-4"><label for="historyMethod" class="form-label">Payment method</label><select id="historyMethod" name="method" class="form-select"><option value="">All methods</option>@foreach(var m in RoutineBillOptions.PaymentMethods){<option value="@m" selected="@(Model.Method==m)">@m</option>}</select></div>
+<div class="col-12 d-flex gap-2"><button type="submit" id="historyFilterSubmit" class="btn btn-primary">Filter</button><a id="historyReset" asp-action="History" class="btn btn-outline-secondary">Reset</a></div>
+</form>
+<div id="billHistoryError" class="alert alert-danger" role="alert" hidden>Could not load payments. Your previous results are still displayed. Try again.</div>
+<partial name="_HistoryResults" model="Model"/>
+</div></div></div>
+
+
+@section Scripts {<script src="~/js/bill-history-filters.js" asp-append-version="true"></script>}
+

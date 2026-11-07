@@ -14,6 +14,8 @@
 
         public string? Description { get; set; }
 
+        public bool IsBillPayment { get; set; }
+
         public bool HasReceipt { get; set; }
     }
 }

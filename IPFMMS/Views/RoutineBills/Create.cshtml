@@ -1,0 +1,14 @@
+@model IPFMMS.ViewModels.CreateRoutineBillViewModel
+@{ ViewData["Title"]="Add Bill or Subscription"; Layout="_DashboardLayout"; }
+<div class="container-fluid py-4" style="max-width:1000px">
+    <h2 class="fw-bold">Add Bill or Subscription</h2>
+    <p class="text-muted mb-4">Plan a scheduled payment and choose when you want to be reminded.</p>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4 p-md-5">
+        <form asp-action="Create" method="post">
+            <partial name="_RoutineBillFields" model="Model" />
+            <p class="small text-muted">Saving a bill records a planned payment. It does not charge a bank account or create an expense.</p>
+            <div class="d-flex gap-2 flex-wrap justify-content-end"><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-primary" disabled="@(Model.Categories.Count==0)">Save bill</button></div>
+        </form>
+    </div></div>
+</div>
+@section Scripts {<script src="~/lib/jquery/dist/jquery.min.js"></script><partial name="_ValidationScriptsPartial" />}

@@ -1,0 +1,10 @@
+@model IPFMMS.ViewModels.RoutineBillHistoryViewModel
+<div id="billHistoryResults" aria-live="polite">
+<p class="small text-muted">@Model.Count matching payment(s)</p>
+@if(Model.Count==0){<p class="mb-0">No payments match these filters.</p>}else{
+<p class="small text-muted d-md-none">Swipe the table to see payment details and the expense reference.</p><div class="table-responsive"><table class="table align-middle" style="min-width:800px"><thead class="table-light"><tr><th>Bill</th><th>Scheduled due date</th><th>Paid on</th><th class="text-end">Amount (RM)</th><th>Payment method</th><th>Expense reference</th></tr></thead><tbody>
+@foreach(var p in Model.Payments){<tr><th scope="row" class="fw-normal">@p.billNameSnapshot</th><td>@p.dueDate.ToString("dd MMM yyyy")</td><td>@p.paidDate.ToString("dd MMM yyyy")</td><td class="text-end">@p.amount.ToString("N2")</td><td>@p.paymentMethod</td><td>@p.expenseId</td></tr>}
+</tbody></table></div>
+@if(Model.Pages>1){<nav aria-label="Payment history pages" class="d-flex flex-wrap gap-2 align-items-center mt-3">@if(Model.Page>1){<a asp-action="History" asp-route-page="@(Model.Page-1)" asp-route-search="@Model.Search" asp-route-month="@Model.Month" asp-route-method="@Model.Method" asp-route-expenseId="@Model.ExpenseId" class="btn btn-sm btn-outline-secondary">Previous</a>}<span>Page @Model.Page of @Model.Pages</span>@if(Model.Page<Model.Pages){<a asp-action="History" asp-route-page="@(Model.Page+1)" asp-route-search="@Model.Search" asp-route-month="@Model.Month" asp-route-method="@Model.Method" asp-route-expenseId="@Model.ExpenseId" class="btn btn-sm btn-outline-secondary">Next</a>}</nav>}
+}
+</div>

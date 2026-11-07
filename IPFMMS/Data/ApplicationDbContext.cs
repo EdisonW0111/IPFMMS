@@ -11,6 +11,8 @@ namespace IPFMMS.Data
         {
         }
 
+        public DbSet<RoutineBill> RoutineBills { get; set; }
+        public DbSet<RoutineBillPayment> RoutineBillPayments { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<ParentStudentLink> ParentStudentLinks { get; set; }
         public DbSet<SpendingPrediction> SpendingPredictions { get; set; }
@@ -34,6 +36,25 @@ namespace IPFMMS.Data
             ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<RoutineBill>(entity =>
+            {
+                entity.ToTable("RoutineBills");
+                entity.HasKey(b => b.billId);
+                entity.Property(b => b.billId).ValueGeneratedNever();
+                entity.HasIndex(b => new { b.userId, b.status, b.dueDate });
+                entity.HasOne(b => b.User).WithMany().HasForeignKey(b => b.userId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(b => b.ExpenseCategory).WithMany().HasForeignKey(b => b.expenseCategoryId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<RoutineBillPayment>(entity =>
+            {
+                entity.ToTable("RoutineBillPayments");
+                entity.HasKey(p => p.paymentId);
+                entity.Property(p => p.paymentId).ValueGeneratedNever();
+                entity.HasIndex(p => new { p.billId, p.dueDate }).IsUnique();
+                entity.HasIndex(p => p.expenseId).IsUnique();
+                entity.HasOne(p => p.Bill).WithMany().HasForeignKey(p => p.billId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(p => p.Expense).WithMany().HasForeignKey(p => p.expenseId).OnDelete(DeleteBehavior.Restrict);
+            });
             modelBuilder.Entity<Notification>(entity =>
             {
                 entity.ToTable("Notifications");

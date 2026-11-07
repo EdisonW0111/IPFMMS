@@ -1,0 +1,11 @@
+@model IPFMMS.ViewModels.DeleteRoutineBillViewModel
+@{ ViewData["Title"]="Delete Bill or Subscription"; Layout="_DashboardLayout"; }
+<div class="container-fluid py-4" style="max-width:850px">
+    <h2 class="fw-bold">Delete Bill or Subscription</h2>
+    @if(TempData["WarningMessage"] is string warning){<div class="alert alert-warning" role="status">@warning</div>}
+    <div class="card border-0 shadow-sm mt-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">@Model.Bill.billName</h3><p>@Model.Bill.ExpenseCategory?.CategoryName · RM @Model.Bill.amount.ToString("N2") · Due @Model.Bill.dueDate.ToString("dd MMM yyyy")</p>
+        <p>Delete this schedule from your bill list? Existing payment history and expense records will be kept.</p>
+        <form asp-action="DeleteConfirmed" method="post" class="d-flex gap-2 flex-wrap"><input type="hidden" name="id" value="@Model.Bill.billId" /><input type="hidden" name="stamp" value="@Model.EditStamp" /><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-danger">Delete bill</button></form>
+    </div></div>
+</div>

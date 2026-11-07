@@ -133,8 +133,8 @@
                         </div>
                     </div>
 
-                    <a href="#" class="sidebar-link"
-                        title="Routine Bills">
+                    <a asp-controller="RoutineBills" asp-action="Index" class="sidebar-link @(currentController == "RoutineBills" ? "active" : "")"
+                        aria-current="@(currentController == "RoutineBills" ? "page" : null)" title="Routine Bills">
                         <i class="bi bi-calendar-check"></i>
                         <span class="nav-label">Routine Bills</span>
                     </a>

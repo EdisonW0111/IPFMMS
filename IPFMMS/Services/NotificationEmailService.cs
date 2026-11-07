@@ -18,11 +18,11 @@ public sealed class NotificationEmailService(ApplicationDbContext db, Notificati
             if (await notifications.Visible(owner).Where(n => n.notificationId == id && n.emailStatus == "Pending")
                 .ExecuteUpdateAsync(s => s.SetProperty(n => n.emailStatus, "Sending").SetProperty(n => n.emailAttemptedDate, DateTime.UtcNow), deliveryCt) == 0) continue;
             var pair = await db.Notifications.AsNoTracking().Where(n => n.notificationId == id && n.userId == owner)
-                .Select(n => new { n.relatedUserId }).SingleAsync(ct);
+                .Select(n => new { n.relatedUserId }).SingleAsync(deliveryCt);
             await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, deliveryCt);
             // Consent cannot be revoked midway through the send: revocation uses the same account locks.
             await db.Users.FromSqlInterpolated($"SELECT * FROM `Users` WHERE `UserId` IN ({owner}, {pair.relatedUserId}) ORDER BY `UserId` FOR UPDATE")
-                .AsNoTracking().ToListAsync(ct);
+                .AsNoTracking().ToListAsync(deliveryCt);
             var notification = await notifications.Visible(owner).SingleOrDefaultAsync(n => n.notificationId == id && n.emailStatus == "Sending", deliveryCt);
             if (notification == null)
             {
@@ -30,7 +30,7 @@ public sealed class NotificationEmailService(ApplicationDbContext db, Notificati
                     .ExecuteUpdateAsync(s => s.SetProperty(n => n.emailStatus, "Suppressed"), deliveryCt);
                 await tx.CommitAsync(deliveryCt); continue;
             }
-            var email = await db.Users.Where(u => u.UserId == owner).Select(u => u.Email).SingleAsync(ct);
+            var email = await db.Users.Where(u => u.UserId == owner).Select(u => u.Email).SingleAsync(deliveryCt);
             var status = "Sent";
             try { await mail.SendAsync(email, notification.title, notification.message); }
             catch (Exception)

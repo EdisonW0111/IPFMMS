@@ -77,6 +77,7 @@ namespace IPFMMS.Controllers
                     Amount = expense.Amount,
                     TransactionDate = expense.ExpenseDate,
                     Description = expense.Description,
+                    IsBillPayment = _context.RoutineBillPayments.Any(p => p.expenseId == expense.ExpenseId),
                     HasReceipt = expense.ReceiptPath != null && expense.ReceiptPath != ""
                 }
             ).ToListAsync();
@@ -249,6 +250,7 @@ namespace IPFMMS.Controllers
                     Amount = income.Amount,
                     TransactionDate = income.IncomeDate,
                     Description = income.Description,
+                    IsBillPayment = false,
                     HasReceipt = false
                 };
 
@@ -268,6 +270,7 @@ namespace IPFMMS.Controllers
                     Amount = expense.Amount,
                     TransactionDate = expense.ExpenseDate,
                     Description = expense.Description,
+                    IsBillPayment = _context.RoutineBillPayments.Any(p => p.expenseId == expense.ExpenseId),
                     HasReceipt =
                         expense.ReceiptPath != null &&
                         expense.ReceiptPath != ""
@@ -388,6 +391,7 @@ namespace IPFMMS.Controllers
                     Amount = t.Amount,
                     TransactionDate = t.TransactionDate,
                     Description = t.Description,
+                    IsBillPayment = t.IsBillPayment,
                     HasReceipt = t.HasReceipt
                 })
                 .ToListAsync();
