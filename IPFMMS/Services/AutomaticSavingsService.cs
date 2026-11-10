@@ -78,6 +78,7 @@ public sealed class AutomaticSavingsService(ApplicationDbContext db, IdGenerator
                 .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
             decimal allocated = await db.SavingsContributions.Where(c => c.SavingsGoal!.UserId == owner)
                 .SumAsync(c => (decimal?)c.Amount, ct) ?? 0m;
+            allocated += await SharedSavingsAllocations.NetAsync(db,owner,ct:ct);
             if (plan.Deduction > 0m && income-expenses-allocated < plan.Deduction)
                 attempt.Status = "InsufficientFunds";
             else

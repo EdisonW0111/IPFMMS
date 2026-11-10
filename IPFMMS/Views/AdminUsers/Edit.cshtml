@@ -1,0 +1,23 @@
+@model IPFMMS.ViewModels.AdminUserEditViewModel
+@{ ViewData["Title"] = "Edit Account"; Layout = "_DashboardLayout"; }
+@section Styles { <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" /> }
+<div class="container-fluid py-4 admin-page"><div class="admin-form">
+    <div class="admin-heading"><div><h2 class="fw-bold">Edit Account</h2><p class="text-muted">Update account information and access.</p></div></div>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4"><form asp-action="Edit" asp-route-id="@Model.UserId" method="post">
+        <input asp-for="UserId" type="hidden" /><input asp-for="EditStamp" type="hidden" />
+        <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+        <div class="mb-3"><label asp-for="FullName" class="form-label">Full name</label><input asp-for="FullName" class="form-control" maxlength="100" /><span asp-validation-for="FullName" class="text-danger small"></span></div>
+        <div class="mb-3"><label for="accountEmail" class="form-label">Email address</label><input id="accountEmail" value="@Model.Email" class="form-control" readonly /><div class="form-text">The registered email address is kept unchanged.</div></div>
+        <div class="mb-3"><label asp-for="PhoneNumber" class="form-label">Phone number (optional)</label><input asp-for="PhoneNumber" class="form-control" maxlength="20" /><span asp-validation-for="PhoneNumber" class="text-danger small"></span></div>
+        @if (Model.IsSelf || Model.IsPending || Model.IsDeleted) {
+            <input asp-for="Role" type="hidden" /><input asp-for="AccountStatus" type="hidden" />
+            <dl class="row admin-detail-list"><dt class="col-sm-3">Role</dt><dd class="col-sm-9">@Model.Role</dd><dt class="col-sm-3">Account status</dt><dd class="col-sm-9">@Model.AccountStatus</dd></dl>
+            <div class="alert alert-info">@(Model.IsSelf ? "Your own administrator role and account status cannot be changed here." : Model.IsPending ? "This account must finish email verification before its role or status can be changed." : "Deleted accounts cannot be restored or edited.")</div>
+        } else {
+            <div class="row g-3 mb-3"><div class="col-sm-6"><label asp-for="Role" class="form-label">Role</label><select asp-for="Role" class="form-select"><option value="User">User</option><option value="Admin">Admin</option>@if (Model.Role == "Parent") { <option value="Parent">Parent (existing role)</option> }</select><span asp-validation-for="Role" class="text-danger small"></span></div><div class="col-sm-6"><label asp-for="AccountStatus" class="form-label">Account status</label><select asp-for="AccountStatus" class="form-select"><option value="Active">Active</option><option value="Inactive">Inactive</option></select><span asp-validation-for="AccountStatus" class="text-danger small"></span></div></div>
+            <p class="small text-muted">Administrator access grants system management permissions. An inactive account cannot sign in.</p>
+        }
+        <div class="admin-actions mt-4"><a asp-action="Details" asp-route-id="@Model.UserId" class="btn btn-outline-secondary">Cancel</a>@if (!Model.IsDeleted) { <button type="submit" class="btn btn-primary">Save changes</button> }</div>
+    </form></div></div>
+</div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

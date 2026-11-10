@@ -1,4 +1,4 @@
-﻿using IPFMMS.Data;
+using IPFMMS.Data;
 using IPFMMS.Models;
 using IPFMMS.Services;
 using IPFMMS.ViewModels;
@@ -367,6 +367,16 @@ namespace IPFMMS.Controllers
                 return NotFound();
             }
 
+            if(await _context.SharedFinanceTransactions.AnyAsync(t=>t.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is linked to a shared finance entry and is read-only to preserve its history.";
+                return RedirectToAction("PersonalEntry","SharedFinance",new{expenseId=expense.ExpenseId});
+            }
+            if(await _context.DebtRepayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is linked to a debt repayment and is read-only to preserve its history.";
+                return RedirectToAction("Payment","Debt",new{expenseId=expense.ExpenseId});
+            }
             if(await _context.RoutineBillPayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
             {
                 TempData["WarningMessage"]="This expense is a recorded bill payment. View it in Routine Bills payment history.";
@@ -467,6 +477,16 @@ namespace IPFMMS.Controllers
                 return NotFound();
             }
 
+            if(await _context.SharedFinanceTransactions.AnyAsync(t=>t.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is linked to a shared finance entry and is read-only to preserve its history.";
+                return RedirectToAction("PersonalEntry","SharedFinance",new{expenseId=expense.ExpenseId});
+            }
+            if(await _context.DebtRepayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is linked to a debt repayment and is read-only to preserve its history.";
+                return RedirectToAction("Payment","Debt",new{expenseId=expense.ExpenseId});
+            }
             if(await _context.RoutineBillPayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
             {
                 TempData["WarningMessage"]="This expense is a recorded bill payment. View it in Routine Bills payment history.";
@@ -766,6 +786,16 @@ namespace IPFMMS.Controllers
                 return NotFound();
             }
 
+            if(await _context.SharedFinanceTransactions.AnyAsync(t=>t.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is linked to a shared finance entry and is read-only to preserve its history.";
+                return RedirectToAction("PersonalEntry","SharedFinance",new{expenseId=expense.ExpenseId});
+            }
+            if(await _context.DebtRepayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
+            {
+                TempData["WarningMessage"]="This expense is linked to a debt repayment and is read-only to preserve its history.";
+                return RedirectToAction("Payment","Debt",new{expenseId=expense.ExpenseId});
+            }
             if(await _context.RoutineBillPayments.AnyAsync(p=>p.expenseId==expense.ExpenseId))
             {
                 TempData["WarningMessage"]="This expense is a recorded bill payment. View it in Routine Bills payment history.";

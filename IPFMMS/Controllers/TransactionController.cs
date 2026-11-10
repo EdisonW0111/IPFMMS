@@ -1,5 +1,6 @@
-﻿using System.Globalization;
+using System.Globalization;
 using IPFMMS.Data;
+using IPFMMS.Services;
 using IPFMMS.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -77,6 +78,8 @@ namespace IPFMMS.Controllers
                     Amount = expense.Amount,
                     TransactionDate = expense.ExpenseDate,
                     Description = expense.Description,
+                    IsSharedExpense = _context.SharedFinanceTransactions.Any(t => t.expenseId == expense.ExpenseId),
+                    IsDebtRepayment = _context.DebtRepayments.Any(p => p.expenseId == expense.ExpenseId),
                     IsBillPayment = _context.RoutineBillPayments.Any(p => p.expenseId == expense.ExpenseId),
                     HasReceipt = expense.ReceiptPath != null && expense.ReceiptPath != ""
                 }
@@ -88,6 +91,8 @@ namespace IPFMMS.Controllers
                 .Where(c => c.SavingsGoal!.UserId == userId &&
                     c.ContributionDate >= selectedMonth && c.ContributionDate < nextMonth)
                 .SumAsync(c => (decimal?)c.Amount) ?? 0m;
+
+            savingsAllocated += await SharedSavingsAllocations.NetAsync(_context,userId,selectedMonth,nextMonth);
 
             var model = new TransactionIndexViewModel
             {
@@ -250,6 +255,8 @@ namespace IPFMMS.Controllers
                     Amount = income.Amount,
                     TransactionDate = income.IncomeDate,
                     Description = income.Description,
+                    IsSharedExpense = false,
+                    IsDebtRepayment = false,
                     IsBillPayment = false,
                     HasReceipt = false
                 };
@@ -270,6 +277,8 @@ namespace IPFMMS.Controllers
                     Amount = expense.Amount,
                     TransactionDate = expense.ExpenseDate,
                     Description = expense.Description,
+                    IsSharedExpense = _context.SharedFinanceTransactions.Any(t => t.expenseId == expense.ExpenseId),
+                    IsDebtRepayment = _context.DebtRepayments.Any(p => p.expenseId == expense.ExpenseId),
                     IsBillPayment = _context.RoutineBillPayments.Any(p => p.expenseId == expense.ExpenseId),
                     HasReceipt =
                         expense.ReceiptPath != null &&
@@ -391,6 +400,8 @@ namespace IPFMMS.Controllers
                     Amount = t.Amount,
                     TransactionDate = t.TransactionDate,
                     Description = t.Description,
+                    IsSharedExpense = t.IsSharedExpense,
+                    IsDebtRepayment = t.IsDebtRepayment,
                     IsBillPayment = t.IsBillPayment,
                     HasReceipt = t.HasReceipt
                 })

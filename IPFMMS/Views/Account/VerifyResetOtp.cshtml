@@ -1,4 +1,5 @@
-﻿@model IPFMMS.ViewModels.ResetPasswordOtpViewModel
+@inject IPFMMS.Services.UserPreferenceService Preferences
+@model IPFMMS.ViewModels.ResetPasswordOtpViewModel
 
 @{
     ViewData["Title"] = "Verify Reset Code";
@@ -14,9 +15,11 @@
         : 0;
 }
 
+@{ var ipfmmsTheme = await Preferences.ThemeAsync(User, Context.Request.Cookies["IPFMMS.Theme"]); }
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="@ipfmmsTheme.ToLowerInvariant()">
 <head>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
     <meta charset="utf-8" />
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0" />
@@ -32,6 +35,7 @@
     <link rel="stylesheet"
           href="~/css/forgot-password.css"
           asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
 </head>
 
 <body>

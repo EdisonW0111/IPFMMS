@@ -217,4 +217,37 @@
             </section>
         </div>
     </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-xl-5">
+            <section class="card border-0 shadow-sm rounded-4 h-100" aria-labelledby="dashboardBillsHeading">
+                <div class="card-body p-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h3 id="dashboardBillsHeading" class="h5 fw-bold mb-1">Upcoming bills</h3><span class="small text-muted">Next 30 days · @Model.UpcomingBillCount unpaid</span></div><a asp-controller="RoutineBills" asp-action="Index" class="btn btn-sm btn-outline-secondary">View all bills</a></div>
+                    @if(Model.OverdueBillCount>0){
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2"><span class="fw-semibold text-danger">@Model.OverdueBillCount overdue bill(s)</span><a asp-controller="RoutineBills" asp-action="Index" asp-route-status="Overdue" class="small">Review overdue bills</a></div>
+                        <p class="small text-muted">Showing the oldest @Model.OverdueBills.Count overdue item(s).</p>
+                        @foreach(var bill in Model.OverdueBills){<div class="border rounded p-3 mb-2"><div class="d-flex justify-content-between flex-wrap gap-2"><a asp-controller="RoutineBills" asp-action="Index" asp-route-search="@bill.Name" class="fw-semibold text-break">@bill.Name</a><span class="fw-bold text-nowrap">RM @bill.Amount.ToString("N2")</span></div><div class="small text-muted mt-1 text-break">@bill.Category · Due @bill.DueDate.ToString("dd MMM yyyy")</div><div class="d-flex flex-wrap gap-2 align-items-center mt-2"><span class="badge bg-danger">Overdue</span><a asp-controller="RoutineBills" asp-action="Pay" asp-route-id="@bill.BillId" class="btn btn-sm btn-outline-primary">Mark as paid</a></div></div>}
+                        <hr class="my-3"/>
+                    }
+                    @if(Model.UpcomingBills.Count==0){<p class="text-muted small mb-0">No unpaid bills are due in the next 30 days.</p>}else{
+                        foreach(var bill in Model.UpcomingBills){var dueToday=bill.DueDate==Model.AsOfDate;<div class="border rounded p-3 mb-2"><div class="d-flex justify-content-between flex-wrap gap-2"><a asp-controller="RoutineBills" asp-action="Index" asp-route-search="@bill.Name" class="fw-semibold text-break">@bill.Name</a><span class="fw-bold text-nowrap">RM @bill.Amount.ToString("N2")</span></div><div class="small text-muted mt-1 text-break">@bill.Category · Due @bill.DueDate.ToString("dd MMM yyyy")</div><div class="d-flex flex-wrap gap-2 align-items-center mt-2"><span class="badge @(dueToday?"bg-warning text-dark":"bg-info text-dark")">@(dueToday?"Due today":"Upcoming")</span>@if(bill.DueDate<Model.CurrentMonth.AddMonths(1)){<a asp-controller="RoutineBills" asp-action="Pay" asp-route-id="@bill.BillId" class="btn btn-sm btn-outline-primary">Mark as paid</a>}</div></div>}
+                        <p class="small text-muted mb-0 mt-2">Showing the next @Model.UpcomingBills.Count of @Model.UpcomingBillCount due item(s). Paid occurrences, inactive schedules and deleted schedules are excluded.</p>
+                    }
+                </div>
+            </section>
+        </div>
+        <div class="col-12 col-xl-7">
+            <section class="card border-0 shadow-sm rounded-4 h-100" aria-labelledby="dashboardActivityHeading">
+                <div class="card-body p-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3"><div><h3 id="dashboardActivityHeading" class="h5 fw-bold mb-1">Recent financial activity</h3><span class="small text-muted">Latest 10 records through today</span></div><a asp-controller="Transaction" asp-action="All" class="btn btn-sm btn-outline-secondary">View transactions</a></div>
+                    <p class="small text-muted">Income, spending and savings allocations are shown separately. Bill, debt and shared payments already recorded as expenses appear once.</p>
+                    @if(Model.RecentActivities.Count==0){<p class="text-muted mb-0">No financial activity recorded yet.</p>}else{
+                        <p class="small text-muted d-md-none">Swipe the table to see all activity details.</p>
+                        <div class="table-responsive"><table class="table align-middle mb-0" style="min-width:560px"><thead class="table-light"><tr><th>Date</th><th>Activity</th><th class="text-end">Amount (RM)</th><th>Action</th></tr></thead><tbody>
+                        @foreach(var activity in Model.RecentActivities){<tr><td class="text-nowrap">@activity.Date.ToString("dd MMM yyyy")</td><td><div class="small @(activity.Type=="Income"?"text-success":activity.Type=="Expense"?"text-danger":"text-muted")">@activity.Label</div><div class="fw-semibold text-break" style="max-width:300px">@activity.Title</div>@if(!string.IsNullOrEmpty(activity.Description)){<div class="small text-muted text-break" style="max-width:300px">@(activity.Description.Length>100?activity.Description[..100]+"…":activity.Description)</div>}</td><td class="text-end text-nowrap @(activity.Type=="Income"||activity.Type=="SharedRelease"?"text-success":activity.Type=="Expense"?"text-danger":"")">@activity.Prefix@activity.Amount.ToString("N2")</td><td><a asp-controller="@activity.Controller" asp-action="@activity.Action" asp-route-id="@activity.RouteId" asp-route-expenseId="@activity.ExpenseId" class="btn btn-sm btn-outline-secondary">View</a></td></tr>}
+                        </tbody></table></div>
+                    }
+                </div>
+            </section>
+        </div>
+    </div>
 </div>

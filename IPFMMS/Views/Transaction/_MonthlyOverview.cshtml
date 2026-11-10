@@ -1,4 +1,4 @@
-﻿@model IPFMMS.ViewModels.TransactionIndexViewModel
+@model IPFMMS.ViewModels.TransactionIndexViewModel
 
 <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
     <!-- Financial Summary -->
@@ -18,7 +18,7 @@
         </div>
         <div class="col-12 col-md-4">
             <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
-                <div class="text-muted small mb-2">Monthly Savings Allocation</div>
+                <div class="text-muted small mb-2">Net Monthly Savings Allocation</div>
                 <h3 class="fw-bold mb-0">RM @Model.TotalSavingsAllocated.ToString("N2")</h3>
             </div></div>
         </div>
@@ -35,7 +35,7 @@
             <div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4">
                 <div class="text-muted small mb-2">Monthly Remaining</div>
                 <h3 class="fw-bold @(Model.MonthlyRemaining < 0 ? "text-danger" : "text-success") mb-2">RM @Model.MonthlyRemaining.ToString("N2")</h3>
-                <p class="text-muted small mb-0">This month's income minus expenses and savings contributions. Excludes money carried forward.</p>
+                <p class="text-muted small mb-0">This month's income minus expenses and net savings allocations. Includes personal contributions and shared savings contributions less withdrawals; excludes money carried forward.</p>
             </div></div>
         </div>
     </div>
@@ -153,7 +153,15 @@
                                             else
                                             {
                                                 <!-- Edit Expense -->
-                                                @if(transaction.IsBillPayment)
+                                                @if(transaction.IsSharedExpense)
+                                    {
+                                        <a asp-controller="SharedFinance" asp-action="PersonalEntry" asp-route-expenseId="@transaction.TransactionId" class="btn btn-sm btn-outline-secondary transaction-action-btn">View shared entry</a>
+                                    }
+                                    else if(transaction.IsDebtRepayment)
+                                    {
+                                        <a asp-controller="Debt" asp-action="Payment" asp-route-expenseId="@transaction.TransactionId" class="btn btn-sm btn-outline-secondary transaction-action-btn">View repayment</a>
+                                    }
+                                    else if(transaction.IsBillPayment)
                                     {
                                         <a asp-controller="RoutineBills" asp-action="History" asp-route-expenseId="@transaction.TransactionId" class="btn btn-sm btn-outline-secondary transaction-action-btn">View payment</a>
                                     }

@@ -19,6 +19,7 @@ public sealed class MonitoringLinkViewModel
     public DateTime? RequestedDate { get; set; }
     public DateTime? AcceptedDate { get; set; }
     public DateTime? EmailSentDate { get; set; }
+    public bool InvitationEmailEnabled { get; set; } = true;
     public string ViewerId { get; set; } = "";
     public bool IsRequester => ViewerId == RequesterId;
     public bool AccountsEligible { get; set; }

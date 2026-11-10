@@ -28,6 +28,9 @@ public sealed class DeleteRoutineBillViewModel
 }
 public sealed class RoutineBillIndexViewModel
 {
+    public string? Search { get; set; }
+    public string Type { get; set; } = "all";
+    public string Status { get; set; } = "all";
     public DateTime Today { get; set; }
     public int Count { get; set; }
     public int ActiveCount { get; set; }

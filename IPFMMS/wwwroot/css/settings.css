@@ -1,0 +1,29 @@
+.settings-page { max-width: 1120px; }
+.settings-section { border-radius: 14px; }
+.settings-theme-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.settings-theme-choice { position: relative; display: block; border: 1px solid var(--ipfmms-border); border-radius: 12px; padding: 18px; cursor: pointer; height: 100%; color: var(--ipfmms-text); }
+.settings-theme-choice:has(input:checked) { border-color: var(--ipfmms-accent); box-shadow: 0 0 0 2px var(--ipfmms-accent); }
+.settings-theme-choice .form-check-input { margin-right: 8px; }
+.settings-theme-name { font-weight: 650; }
+.settings-theme-example { height: 70px; border-radius: 8px; margin-bottom: 14px; display: flex; padding: 10px; gap: 8px; border: 1px solid #b8c9d8; }
+.settings-theme-example::before { content: ''; width: 24%; border-radius: 4px; background: #153f52; }
+.settings-theme-example::after { content: ''; flex: 1; border-radius: 4px; }
+.settings-theme-example-light { background: #edf4f7; }
+.settings-theme-example-light::after { background: #fff; }
+.settings-theme-example-dark { background: #0f1723; border-color: #52647c; }
+.settings-theme-example-dark::after { background: #26364c; }
+.settings-preferences { width: 100%; border-collapse: separate; border-spacing: 0; }
+.settings-preferences th,.settings-preferences td { padding: 18px 12px; vertical-align: middle; border-bottom: 1px solid var(--ipfmms-border); }
+.settings-preferences thead th { font-size: .85rem; color: var(--ipfmms-muted); }
+.settings-preferences th:first-child,.settings-preferences td:first-child { padding-left: 0; }
+.settings-preferences tr:last-child td { border-bottom: 0; }
+.settings-preferences .settings-channel { text-align: center; width: 110px; }
+.settings-preferences .form-check-input { width: 1.25rem; height: 1.25rem; float: none; margin: 0; cursor: pointer; }
+.settings-preference-title { display: block; font-weight: 650; margin-bottom: 4px; }
+.settings-preference-description { display: block; font-size: .85rem; line-height: 1.5; color: var(--ipfmms-muted); }
+.settings-account-links { display: flex; gap: 12px; flex-wrap: wrap; }
+@media(max-width:575.98px) { .settings-theme-options { gap: 12px; } .settings-theme-choice { padding: 12px; } .settings-preferences th,.settings-preferences td { padding: 16px 7px; } .settings-preferences .settings-channel { width: 62px; } }
+
+/* A desktop-to-mobile resize must use the final content width immediately.
+   Animating the shared layout width temporarily squeezed this table outside its card. */
+@media(max-width:768px) { .dashboard-main:has(.settings-page) { transition: none; } }

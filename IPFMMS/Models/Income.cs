@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace IPFMMS.Models
@@ -42,5 +43,26 @@ namespace IPFMMS.Models
 
         // Navigation property
         public User User { get; set; } = null!;
+
+        // Chapter 4 attribute names share the existing persisted values. These aliases
+        // add no database columns and keep existing serialization contracts unchanged.
+        [NotMapped, JsonIgnore]
+        public string incomeId { get => IncomeId; set => IncomeId = value; }
+        [NotMapped, JsonIgnore]
+        public string userId { get => UserId; set => UserId = value; }
+        [NotMapped, JsonIgnore]
+        public string incomeCategoryId { get => IncomeCategoryId; set => IncomeCategoryId = value; }
+        [NotMapped, JsonIgnore]
+        public decimal amount { get => Amount; set => Amount = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime incomeDate { get => IncomeDate; set => IncomeDate = value; }
+        [NotMapped, JsonIgnore]
+        public string? description { get => Description; set => Description = value; }
+        [NotMapped, JsonIgnore]
+        public string? paymentMethod { get => PaymentMethod; set => PaymentMethod = value; }
+        [NotMapped, JsonIgnore]
+        public string? reference { get => Reference; set => Reference = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime createdDate { get => CreatedDate; set => CreatedDate = value; }
     }
 }

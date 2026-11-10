@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 
 namespace IPFMMS.Models
 {
@@ -30,5 +32,22 @@ namespace IPFMMS.Models
         public int FailedAttempts { get; set; } = 0;
 
         public User User { get; set; } = null!;
+
+        // Chapter 4 attribute names share the existing persisted values. These aliases
+        // add no database columns and keep existing serialization contracts unchanged.
+        [NotMapped, JsonIgnore]
+        public string otpId { get => OtpId; set => OtpId = value; }
+        [NotMapped, JsonIgnore]
+        public string userId { get => UserId; set => UserId = value; }
+        [NotMapped, JsonIgnore]
+        public string otpCode { get => OtpCode; set => OtpCode = value; }
+        [NotMapped, JsonIgnore]
+        public string purpose { get => Purpose; set => Purpose = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime createdDateTime { get => CreatedDateTime; set => CreatedDateTime = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime expiryDateTime { get => ExpiryDateTime; set => ExpiryDateTime = value; }
+        [NotMapped, JsonIgnore]
+        public bool isVerified { get => IsVerified; set => IsVerified = value; }
     }
 }

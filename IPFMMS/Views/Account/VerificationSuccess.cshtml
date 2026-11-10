@@ -1,11 +1,14 @@
-﻿@{
+@inject IPFMMS.Services.UserPreferenceService Preferences
+@{
     ViewData["Title"] = "Email Verified Successfully";
     Layout = null;
 }
 
+@{ var ipfmmsTheme = await Preferences.ThemeAsync(User, Context.Request.Cookies["IPFMMS.Theme"]); }
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="@ipfmmsTheme.ToLowerInvariant()">
 <head>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
     <meta charset="utf-8" />
 
     <meta name="viewport"
@@ -16,6 +19,7 @@
     <link rel="stylesheet"
           href="~/css/verification-success.css"
           asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
 </head>
 <body>
 

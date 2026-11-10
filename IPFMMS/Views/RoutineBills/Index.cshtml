@@ -7,15 +7,18 @@
     <div class="row g-3 mb-4"><div class="col-12 col-md-4"><div class="card border-0 shadow-sm"><div class="card-body p-4"><div class="text-muted small">Active bills</div><div class="h2 fw-bold mb-0">@Model.ActiveCount</div></div></div></div><div class="col-12 col-md-4"><div class="card border-0 shadow-sm"><div class="card-body p-4"><div class="text-muted small">Next due date within 30 days</div><div class="h2 fw-bold mb-0">@Model.UpcomingCount</div></div></div></div><div class="col-12 col-md-4"><div class="card border-0 shadow-sm"><div class="card-body p-4"><div class="text-muted small">Overdue</div><div class="h2 fw-bold @(Model.OverdueCount>0?"text-danger":"") mb-0">@Model.OverdueCount</div></div></div></div></div>
     <section class="card border-0 shadow-sm"><div class="card-body p-4">
         <h3 class="h5 fw-bold">Scheduled bills and subscriptions</h3>
-        @if(Model.Bills.Count==0){<p class="text-muted mb-0">No bills yet. Add your first scheduled payment to get started.</p>}
-        else{
-            <p class="small text-muted d-md-none">Swipe the table to see all columns.</p>
-            <div class="table-responsive"><table class="table align-middle mb-0"><thead class="table-light"><tr><th>Name</th><th>Type</th><th>Category</th><th class="text-end">Amount (RM)</th><th>Next due date</th><th>Frequency</th><th>Reminder</th><th>Status</th><th style="width:240px;min-width:240px">Actions</th></tr></thead><tbody>
-                @foreach(var bill in Model.Bills){var display=Model.DisplayStatus(bill);<tr><th scope="row" class="fw-normal">@bill.billName</th><td>@bill.billType</td><td>@bill.ExpenseCategory?.CategoryName</td><td class="text-end">@bill.amount.ToString("N2")</td><td>@bill.dueDate.ToString("dd MMM yyyy")</td><td>@RoutineBillOptions.FrequencyLabel(bill.frequency)</td><td>@(bill.reminderPeriod==0?"On due date":bill.reminderPeriod+" day(s) before")</td><td><span class="badge @(display=="Overdue"?"bg-danger":display=="Due today"?"bg-warning text-dark":display=="Upcoming"?"bg-info text-dark":"bg-secondary")">@display</span></td><td><div class="d-flex align-items-center gap-2 flex-nowrap" style="min-width:216px">@if(bill.status=="Active"&&bill.dueDate<new DateTime(Model.Today.Year,Model.Today.Month,1).AddMonths(1)){<a asp-action="Pay" asp-route-id="@bill.billId" class="btn btn-sm btn-primary text-nowrap">Mark as paid</a>}<a asp-action="Edit" asp-route-id="@bill.billId" class="btn btn-sm btn-outline-primary">Edit</a><a asp-action="Delete" asp-route-id="@bill.billId" class="btn btn-sm btn-outline-danger">Delete</a></div></td></tr>}
-            </tbody></table></div>
-            @if(Model.Pages>1){<nav aria-label="Scheduled bill pages" class="d-flex gap-2 align-items-center mt-3">@if(Model.Page>1){<a asp-action="Index" asp-route-page="@(Model.Page-1)" class="btn btn-sm btn-outline-secondary">Previous</a>}<span>Page @Model.Page of @Model.Pages</span>@if(Model.Page<Model.Pages){<a asp-action="Index" asp-route-page="@(Model.Page+1)" class="btn btn-sm btn-outline-secondary">Next</a>}</nav>}
-        }
+        <p class="small text-muted">Summary cards cover all your saved schedules. Filters apply to the list below.</p>
+        <form asp-action="Index" method="get" id="routineBillFilters" class="row g-3 align-items-start mb-4">
+            <div class="col-12 col-lg-5"><label for="scheduledBillSearch" class="form-label">Search</label><input id="scheduledBillSearch" name="search" type="search" value="@Model.Search" maxlength="100" placeholder="Bill name or expense category" class="form-control"/></div>
+            <div class="col-12 col-sm-6 col-lg-3"><label for="scheduledBillType" class="form-label">Type</label><select id="scheduledBillType" name="type" class="form-select"><option value="all" selected="@(Model.Type=="all")">All types</option>@foreach(var type in RoutineBillOptions.Types){<option value="@type" selected="@(Model.Type==type)">@type</option>}</select></div>
+            <div class="col-12 col-sm-6 col-lg-4"><label for="scheduledBillStatus" class="form-label">Status</label><select id="scheduledBillStatus" name="status" class="form-select">@foreach(var status in new[]{"all","Active","Upcoming","DueToday","Overdue","Inactive","Completed"}){<option value="@status" selected="@(Model.Status==status)">@(status switch{"all"=>"All statuses","Active"=>"Active (all dates)","Upcoming"=>"Upcoming (next 30 days)","DueToday"=>"Due today",_=>status})</option>}</select></div>
+            <div class="col-12 d-flex gap-2"><button id="routineBillFilterButton" type="submit" class="btn btn-primary">Filter</button><a id="routineBillReset" asp-action="Index" class="btn btn-outline-secondary">Reset</a></div>
+        </form>
+        <div id="routineBillFilterError" class="alert alert-warning" role="alert" hidden>Could not load bills. Your previous results remain displayed. Please try again.</div>
+        <partial name="_ScheduledBillResults" model="Model"/>
     </div></section>
 </div>
 
 
+
+@section Scripts{<script src="~/js/routine-bill-filters.js" asp-append-version="true"></script>}

@@ -43,6 +43,7 @@ namespace IPFMMS.Controllers
             var today = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date;
             var month = new DateTime(today.Year, today.Month, 1);
             var nextMonth = month.AddMonths(1);
+            await new BudgetRolloverService(_context,new IdGeneratorService(_context)).EnsureMonthAsync(userId,month);
 
             var incomeQuery = _context.Incomes.AsNoTracking().Where(i => i.UserId == userId);
             var expenseQuery = _context.Expenses.AsNoTracking().Where(e => e.UserId == userId);
@@ -50,21 +51,23 @@ namespace IPFMMS.Controllers
             // to completed goals. A planning target alone is never an allocation.
             var contributionQuery = _context.SavingsContributions.AsNoTracking()
                 .Where(c => c.SavingsGoal!.UserId == userId);
+            var sharedAllocated = await SharedSavingsAllocations.NetAsync(_context,userId);
+            var sharedMonthlyAllocated = await SharedSavingsAllocations.NetAsync(_context,userId,month,nextMonth);
             var model = new FinancialDashboardViewModel
             {
                 AsOfDate = today,
                 TotalIncome = await incomeQuery.SumAsync(i => (decimal?)i.Amount) ?? 0m,
                 TotalExpenses = await expenseQuery.SumAsync(e => (decimal?)e.Amount) ?? 0m,
-                TotalSavingsAllocated = await contributionQuery.SumAsync(c => (decimal?)c.Amount) ?? 0m,
+                TotalSavingsAllocated = (await contributionQuery.SumAsync(c => (decimal?)c.Amount) ?? 0m) + sharedAllocated,
                 MonthlyIncome = await incomeQuery
                     .Where(i => i.IncomeDate >= month && i.IncomeDate < nextMonth)
                     .SumAsync(i => (decimal?)i.Amount) ?? 0m,
                 MonthlyExpenses = await expenseQuery
                     .Where(e => e.ExpenseDate >= month && e.ExpenseDate < nextMonth)
                     .SumAsync(e => (decimal?)e.Amount) ?? 0m,
-                MonthlySavingsAllocated = await contributionQuery
+                MonthlySavingsAllocated = (await contributionQuery
                     .Where(c => c.ContributionDate >= month && c.ContributionDate < nextMonth)
-                    .SumAsync(c => (decimal?)c.Amount) ?? 0m
+                    .SumAsync(c => (decimal?)c.Amount) ?? 0m) + sharedMonthlyAllocated
             };
 
             var spending = await expenseQuery
@@ -115,6 +118,39 @@ namespace IPFMMS.Controllers
                     ContributionCount = g.SavingsContributions.Count(), AsOfDate = today
                 }).ToListAsync();
 
+            // Show only this owner's active, unpaid occurrences, without generating or paying any bill.
+            var billLimit=today.AddDays(30);
+            var unpaidBills=_context.RoutineBills.AsNoTracking().Where(b=>b.userId==userId&&b.status=="Active"
+                && !_context.RoutineBillPayments.Any(p=>p.billId==b.billId&&p.dueDate==b.dueDate));
+            model.UpcomingBillCount=await unpaidBills.CountAsync(b=>b.dueDate>=today&&b.dueDate<=billLimit);
+            model.OverdueBillCount=await unpaidBills.CountAsync(b=>b.dueDate<today);
+            model.UpcomingBills=await unpaidBills.Where(b=>b.dueDate>=today&&b.dueDate<=billLimit).OrderBy(b=>b.dueDate).ThenBy(b=>b.billId).Take(4)
+                .Select(b=>new DashboardBillViewModel{BillId=b.billId,Name=b.billName,Type=b.billType,Category=b.ExpenseCategory!.CategoryName,Amount=b.amount,DueDate=b.dueDate}).ToListAsync();
+            model.OverdueBills=await unpaidBills.Where(b=>b.dueDate<today).OrderBy(b=>b.dueDate).ThenBy(b=>b.billId).Take(3)
+                .Select(b=>new DashboardBillViewModel{BillId=b.billId,Name=b.billName,Type=b.billType,Category=b.ExpenseCategory!.CategoryName,Amount=b.amount,DueDate=b.dueDate}).ToListAsync();
+
+            // Read each activity from its financial source once. Bill/debt/shared expense rows
+            // are already in Expenses, so their history tables are used only to choose a link.
+            var cutoff=today.AddDays(1);
+            var activities=await (from income in incomeQuery
+                join category in _context.IncomeCategories.AsNoTracking() on income.IncomeCategoryId equals category.IncomeCategoryId
+                where income.IncomeDate<cutoff
+                orderby income.IncomeDate descending,income.CreatedDate descending,income.IncomeId descending
+                select new DashboardActivityViewModel{Id=income.IncomeId,Date=income.IncomeDate,RecordedAt=income.CreatedDate,Type="Income",Title=category.CategoryName,Description=income.Description,Amount=income.Amount,Controller="Income",Action="Edit",RouteId=income.IncomeId}).Take(10).ToListAsync();
+            var recentExpenses=await (from expense in expenseQuery
+                join category in _context.ExpenseCategories.AsNoTracking() on expense.ExpenseCategoryId equals category.ExpenseCategoryId
+                where expense.ExpenseDate<cutoff
+                orderby expense.ExpenseDate descending,expense.CreatedDate descending,expense.ExpenseId descending
+                select new{expense.ExpenseId,expense.ExpenseDate,expense.CreatedDate,expense.Description,expense.Amount,category.CategoryName,
+                    Bill=_context.RoutineBillPayments.Any(p=>p.expenseId==expense.ExpenseId),Debt=_context.DebtRepayments.Any(p=>p.expenseId==expense.ExpenseId),Shared=_context.SharedFinanceTransactions.Any(t=>t.expenseId==expense.ExpenseId)}).Take(10).ToListAsync();
+            activities.AddRange(recentExpenses.Select(e=>new DashboardActivityViewModel{Id=e.ExpenseId,Date=e.ExpenseDate,RecordedAt=e.CreatedDate,Type="Expense",Title=e.CategoryName,Description=e.Description,Amount=e.Amount,
+                Controller=e.Shared?"SharedFinance":e.Debt?"Debt":e.Bill?"RoutineBills":"Expense",Action=e.Shared?"PersonalEntry":e.Debt?"Payment":e.Bill?"History":"Edit",RouteId=e.Shared||e.Debt||e.Bill?null:e.ExpenseId,ExpenseId=e.Shared||e.Debt||e.Bill?e.ExpenseId:null}));
+            activities.AddRange(await contributionQuery.Where(c=>c.ContributionDate<cutoff).OrderByDescending(c=>c.ContributionDate).ThenByDescending(c=>c.ContributionId).Take(10)
+                .Select(c=>new DashboardActivityViewModel{Id=c.ContributionId,Date=c.ContributionDate,RecordedAt=c.ContributionDate,Type="Savings",Title=c.SavingsGoal!.GoalName,Description=c.Description,Amount=c.Amount,Controller="Savings",Action="Contributions",RouteId=c.SavingsGoalId}).ToListAsync());
+            activities.AddRange(await SharedSavingsAllocations.Query(_context,userId).Where(t=>t.transactionDate<cutoff).OrderByDescending(t=>t.transactionDate).ThenByDescending(t=>t.createdDate).ThenByDescending(t=>t.sharedTransactionId).Take(10)
+                .Select(t=>new DashboardActivityViewModel{Id=t.sharedTransactionId,Date=t.transactionDate,RecordedAt=t.createdDate,Type=t.transactionType=="Withdrawal"?"SharedRelease":"SharedSavings",Title=t.Finance!.sharedFinanceName,Description=t.description,Amount=t.amount,Controller="SharedFinance",Action="MyEntries"}).ToListAsync());
+            model.RecentActivities=activities.OrderByDescending(a=>a.Date).ThenByDescending(a=>a.RecordedAt).ThenByDescending(a=>a.Id).Take(10).ToList();
+
             model.FinancialHealth = await new FinancialHealthService(_context)
                 .BuildAsync(userId, month, today, includeHistory: false);
             return View(model);
@@ -122,9 +158,11 @@ namespace IPFMMS.Controllers
 
         [HttpGet]
         [Authorize(Roles = "Admin")]
-        public IActionResult Admin()
+        public async Task<IActionResult> Admin(CancellationToken ct = default)
         {
-            return View();
+            var actor = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
+            try { return View(await new AdminDashboardService(_context).BuildAsync(actor, ct)); }
+            catch (UnauthorizedAccessException) { return Forbid(); }
         }
     }
 }

@@ -15,6 +15,7 @@ public sealed class RoutineBillReminderService(ApplicationDbContext db,IdGenerat
         {
             var accounts=await db.Users.FromSqlInterpolated($"SELECT * FROM `Users` WHERE `UserId` = {owner} FOR UPDATE").AsNoTracking().ToListAsync(ct);
             if(!accounts.Any(u=>u.AccountStatus==AccountStatus.Active&&(u.Role=="User"||u.Role=="Parent")))return;
+            var preferences=await db.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p=>p.UserId==owner,ct)??new UserPreference();
             var bills=await db.RoutineBills.AsNoTracking().Where(b=>b.userId==owner&&b.status=="Active"&&b.dueDate<=today.AddDays(b.reminderPeriod)
                 && !db.RoutineBillPayments.Any(p=>p.billId==b.billId&&p.dueDate==b.dueDate)).ToListAsync(ct);
             var existing=(await db.Notifications.Where(n=>n.userId==owner&&n.routineBillId!=null).Select(n=>n.eventKey).ToListAsync(ct)).ToHashSet();
@@ -26,7 +27,7 @@ public sealed class RoutineBillReminderService(ApplicationDbContext db,IdGenerat
                 var label=type=="BillOverdue"?"overdue":type=="BillDueToday"?"due today":"upcoming";
                 db.Notifications.Add(new Notification{notificationId=await ids.GenerateIdAsync("NTF"),userId=owner,notificationType=type,title=$"Bill {label}",
                     message=$"{bill.billName}: RM {bill.amount.ToString("N2",CultureInfo.InvariantCulture)}, scheduled for {bill.dueDate:dd MMM yyyy}. This payment is {label}, checked on {today:dd MMM yyyy} (Malaysia time). Open Routine Bills to view the schedule or record a payment you have made. No bank payment has been made by this reminder.",
-                    eventKey=key,routineBillId=bill.billId,billDueDate=bill.dueDate,createdDateTime=DateTime.UtcNow,emailStatus="Pending"});
+                    eventKey=key,routineBillId=bill.billId,billDueDate=bill.dueDate,createdDateTime=DateTime.UtcNow,showInApp=preferences.BillInApp,emailStatus=preferences.BillEmail?"Pending":"Disabled"});
             }
             await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
         }

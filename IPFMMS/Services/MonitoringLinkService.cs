@@ -2,6 +2,7 @@ using IPFMMS.Data;
 using IPFMMS.Models;
 using Microsoft.EntityFrameworkCore;
 namespace IPFMMS.Services;
+public enum InvitationEmailDelivery { Sent, Failed, Disabled, Suppressed }
 public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorService ids,
     IParentLinkEmailSender mail, ILogger<MonitoringLinkService> logger)
 {
@@ -9,7 +10,7 @@ public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorSe
     private Task<List<User>> LockUsers(string a, string b, CancellationToken ct) => db.Users
         .FromSqlInterpolated($"SELECT * FROM `Users` WHERE `UserId` IN ({a}, {b}) ORDER BY `UserId` FOR UPDATE").AsNoTracking().ToListAsync(ct);
 
-    public async Task<bool> RequestAsync(string actor, string email, CancellationToken ct = default)
+    public async Task<InvitationEmailDelivery> RequestAsync(string actor, string email, CancellationToken ct = default)
     {
         email = email.Trim().ToLowerInvariant();
         if (email.Length > 255 || !new System.ComponentModel.DataAnnotations.EmailAddressAttribute().IsValid(email))
@@ -40,13 +41,14 @@ public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorSe
         link.requestedDate = now;
         link.acceptedDate = null;
         link.emailSentDate = null;
-        link.lastEmailAttemptDate = now;
+        var preferences = await db.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == recipientId, ct) ?? new UserPreference();
+        link.lastEmailAttemptDate = preferences.InvitationEmail ? now : null;
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return await DeliverAsync(link.linkId, link.requestVersion, recipient.Email, sender.FullName, ct);
+        return await DeliverAsync(link.linkId, link.requestVersion);
     }
 
-    public async Task<bool?> ResendAsync(string actor, string id, int version, CancellationToken ct = default)
+    public async Task<InvitationEmailDelivery?> ResendAsync(string actor, string id, int version, CancellationToken ct = default)
     {
         var pair = await db.ParentStudentLinks.AsNoTracking().Where(l => l.linkId == id && l.parentId == actor)
             .Select(l => new { l.parentId, l.userId }).SingleOrDefaultAsync(ct);
@@ -58,23 +60,40 @@ public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorSe
         if (link.requestVersion != version || link.linkStatus != "Pending") throw new InvalidOperationException("This request has changed. Refresh the page.");
         if (!accounts.All(Eligible) || accounts.Count != 2) throw new InvalidOperationException("Both accounts must be active users.");
         var now = DateTime.UtcNow;
-        if (link.lastEmailAttemptDate > now.AddMinutes(-1)) throw new InvalidOperationException("Wait one minute between email attempts.");
-        link.lastEmailAttemptDate = now;
+        var preferences = await db.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == pair.userId, ct) ?? new UserPreference();
+        if (preferences.InvitationEmail && link.lastEmailAttemptDate > now.AddMinutes(-1)) throw new InvalidOperationException("Wait one minute between email attempts.");
+        if (preferences.InvitationEmail) link.lastEmailAttemptDate = now;
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
-        return await DeliverAsync(id, version, accounts.Single(u => u.UserId == pair.userId).Email, accounts.Single(u => u.UserId == actor).FullName, ct);
+        return await DeliverAsync(id, version);
     }
 
-    private async Task<bool> DeliverAsync(string id, int version, string email, string requester, CancellationToken ct)
+    private async Task<InvitationEmailDelivery> DeliverAsync(string id, int version)
     {
-        try { await mail.SendRequestAsync(email, requester); }
+        // Finish bookkeeping independently of browser cancellation after the request was saved.
+        var ct = CancellationToken.None;
+        var pair = await db.ParentStudentLinks.AsNoTracking().Where(l => l.linkId == id)
+            .Select(l => new { l.parentId, l.userId }).SingleOrDefaultAsync(ct);
+        if (pair == null) return InvitationEmailDelivery.Suppressed;
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+        var accounts = await LockUsers(pair.parentId, pair.userId, ct);
+        var link = await db.ParentStudentLinks.AsNoTracking().SingleOrDefaultAsync(l => l.linkId == id
+            && l.requestVersion == version && l.linkStatus == "Pending", ct);
+        if (link == null || accounts.Count != 2 || !accounts.All(Eligible))
+            return InvitationEmailDelivery.Suppressed;
+        var preferences = await db.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == pair.userId, ct) ?? new UserPreference();
+        if (!preferences.InvitationEmail) return InvitationEmailDelivery.Disabled;
+        var recipient = accounts.Single(u => u.UserId == pair.userId);
+        var requester = accounts.Single(u => u.UserId == pair.parentId);
+        try { await mail.SendRequestAsync(recipient.Email, requester.FullName); }
         catch (Exception)
         {
             logger.LogWarning("Monitoring request email could not be sent for link {LinkId}. Request is retained for in-app review and resend.", id);
-            return false;
+            return InvitationEmailDelivery.Failed;
         }
         await db.ParentStudentLinks.Where(l => l.linkId == id && l.requestVersion == version && l.linkStatus == "Pending")
             .ExecuteUpdateAsync(s => s.SetProperty(l => l.emailSentDate, DateTime.UtcNow), ct);
-        return true;
+        await tx.CommitAsync(ct);
+        return InvitationEmailDelivery.Sent;
     }
 
     public async Task<bool> TransitionAsync(string actor, string id, int version, string action, CancellationToken ct = default)

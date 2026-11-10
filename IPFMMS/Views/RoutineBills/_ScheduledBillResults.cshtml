@@ -1,0 +1,12 @@
+@model IPFMMS.ViewModels.RoutineBillIndexViewModel
+<div id="scheduledBillResults" aria-live="polite"><p class="small text-muted">@Model.Count matching bill(s)</p>
+        @if(Model.Bills.Count==0){<p class="text-muted mb-0">No bills match these filters.</p>}
+        else{
+            <p class="small text-muted d-md-none">Swipe the table to see all columns.</p>
+            <div class="table-responsive"><table class="table align-middle mb-0" style="min-width:1000px"><thead class="table-light text-nowrap"><tr><th>Name</th><th>Type</th><th>Category</th><th class="text-end">Amount (RM)</th><th>Next due date</th><th>Frequency</th><th>Reminder</th><th>Status</th><th style="width:240px;min-width:240px">Actions</th></tr></thead><tbody>
+                @foreach(var bill in Model.Bills){var display=Model.DisplayStatus(bill);<tr><th scope="row" class="fw-normal">@bill.billName</th><td>@bill.billType</td><td>@bill.ExpenseCategory?.CategoryName</td><td class="text-end">@bill.amount.ToString("N2")</td><td>@bill.dueDate.ToString("dd MMM yyyy")</td><td>@RoutineBillOptions.FrequencyLabel(bill.frequency)</td><td>@(bill.reminderPeriod==0?"On due date":bill.reminderPeriod+" day(s) before")</td><td><span class="badge @(display=="Overdue"?"bg-danger":display=="Due today"?"bg-warning text-dark":display=="Upcoming"?"bg-info text-dark":"bg-secondary")">@display</span></td><td><div class="d-flex align-items-center gap-2 flex-nowrap" style="min-width:216px">@if(bill.status=="Active"&&bill.dueDate<new DateTime(Model.Today.Year,Model.Today.Month,1).AddMonths(1)){<a asp-action="Pay" asp-route-id="@bill.billId" class="btn btn-sm btn-primary text-nowrap">Mark as paid</a>}<a asp-action="Edit" asp-route-id="@bill.billId" class="btn btn-sm btn-outline-primary">Edit</a><a asp-action="Delete" asp-route-id="@bill.billId" class="btn btn-sm btn-outline-danger">Delete</a></div></td></tr>}
+            </tbody></table></div>
+            @if(Model.Pages>1){<nav aria-label="Scheduled bill pages" class="d-flex gap-2 align-items-center mt-3">@if(Model.Page>1){<a asp-action="Index" asp-route-page="@(Model.Page-1)" asp-route-search="@Model.Search" asp-route-type="@Model.Type" asp-route-status="@Model.Status" class="btn btn-sm btn-outline-secondary">Previous</a>}<span>Page @Model.Page of @Model.Pages</span>@if(Model.Page<Model.Pages){<a asp-action="Index" asp-route-page="@(Model.Page+1)" asp-route-search="@Model.Search" asp-route-type="@Model.Type" asp-route-status="@Model.Status" class="btn btn-sm btn-outline-secondary">Next</a>}</nav>}
+        }
+
+</div>

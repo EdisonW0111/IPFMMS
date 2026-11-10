@@ -20,7 +20,8 @@ public sealed class ParentalMonitoringController(ApplicationDbContext db, Monito
             Status = l.linkStatus, Version = l.requestVersion, RequestedDate = l.requestedDate,
             AccountsEligible = l.Parent.AccountStatus == "Active" && l.Student.AccountStatus == "Active"
                 && (l.Parent.Role == "User" || l.Parent.Role == "Parent") && (l.Student.Role == "User" || l.Student.Role == "Parent"),
-            AcceptedDate = l.acceptedDate, EmailSentDate = l.emailSentDate, ViewerId = owner
+            AcceptedDate = l.acceptedDate, EmailSentDate = l.emailSentDate, ViewerId = owner,
+            InvitationEmailEnabled = !db.UserPreferences.Any(p => p.UserId == l.userId && !p.InvitationEmail)
         });
 
     [HttpGet]
@@ -68,10 +69,14 @@ public sealed class ParentalMonitoringController(ApplicationDbContext db, Monito
         if (!ModelState.IsValid) return View(model);
         try
         {
-            bool sent = await links.RequestAsync(Owner, model.Email, ct);
-            TempData[sent ? "SuccessMessage" : "WarningMessage"] = sent
-                ? "Request sent. Monitoring starts only after the other user accepts."
-                : "Your request was saved, but its email could not be sent. The recipient can still review it in Parental Monitoring. You can retry the email after one minute.";
+            var delivery = await links.RequestAsync(Owner, model.Email, ct);
+            TempData[delivery == InvitationEmailDelivery.Failed ? "WarningMessage" : "SuccessMessage"] = delivery switch
+            {
+                InvitationEmailDelivery.Sent => "Request saved and email sent. Monitoring starts only after the other user accepts.",
+                InvitationEmailDelivery.Disabled => "Request saved. The recipient has turned off invitation emails and can review it in Parental Monitoring.",
+                InvitationEmailDelivery.Suppressed => "Request saved. Its email was not sent because the request is no longer available for delivery.",
+                _ => "Your request was saved, but its email could not be sent. The recipient can still review it in Parental Monitoring. You can retry the email after one minute."
+            };
             return RedirectToAction(nameof(Index), new { view = "sent" });
         }
         catch (InvalidOperationException ex) { ModelState.AddModelError(string.Empty, ex.Message); return View(model); }
@@ -115,7 +120,13 @@ public sealed class ParentalMonitoringController(ApplicationDbContext db, Monito
         {
             var sent = await links.ResendAsync(Owner, id, version, ct);
             if (sent == null) return NotFound();
-            TempData[sent.Value ? "SuccessMessage" : "WarningMessage"] = sent.Value ? "Request email sent again." : "Email delivery failed. The request remains available for in-app review. Retry after one minute.";
+            TempData[sent.Value == InvitationEmailDelivery.Failed ? "WarningMessage" : "SuccessMessage"] = sent.Value switch
+            {
+                InvitationEmailDelivery.Sent => "Request email sent again.",
+                InvitationEmailDelivery.Disabled => "The recipient has turned off invitation emails. The request remains available for in-app review.",
+                InvitationEmailDelivery.Suppressed => "The email was not sent because the request is no longer available for delivery.",
+                _ => "Email delivery failed. The request remains available for in-app review. Retry after one minute."
+            };
         }
         catch (InvalidOperationException ex) { TempData["WarningMessage"] = ex.Message; }
         return RedirectToAction(nameof(Review), new { id });

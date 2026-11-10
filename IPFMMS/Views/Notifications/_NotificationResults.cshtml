@@ -7,7 +7,7 @@
             <div class="d-flex flex-wrap justify-content-between gap-2 mb-2"><h3 class="h5 fw-bold mb-0">@notification.title</h3><span class="badge @(notification.isRead ? "bg-secondary" : "bg-primary")">@(notification.isRead?"Read":"Unread")</span></div>
             <p class="small text-muted">@DateTime.SpecifyKind(notification.createdDateTime,DateTimeKind.Utc).AddHours(8).ToString("dd MMM yyyy HH:mm") MYT · @(notification.notificationType switch { "BudgetOverspending"=>"Budget overspending", "BillUpcoming"=>"Upcoming bill", "BillDueToday"=>"Bill due today", "BillOverdue"=>"Overdue bill", _=>"Low Financial Health" })</p>
             <p>@notification.message</p>
-            <p class="small text-muted">Email: @(notification.emailStatus switch { "Sent" => "Sent", "Pending" => "Queued", "Sending" => "Sending", "Failed" => "Delivery failed", "Suppressed" => "Not sent — relationship unavailable", _ => "Not sent" })</p>
+            <p class="small text-muted">Email: @(notification.emailStatus switch { "Sent" => "Sent", "Pending" => "Queued", "Sending" => "Sending", "Failed" => "Delivery failed", "Suppressed" => "Not sent — alert no longer eligible", "Disabled" => "Off in notification settings", _ => "Not sent" })</p>
             @if(notification.emailStatus == "Failed"){<p class="small text-muted">You can retry email delivery after one minute. The in-app alert remains available.</p>}
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 @if(notification.routineBillId!=null){<a asp-controller="RoutineBills" asp-action="Index" class="btn btn-outline-primary btn-sm">View bills</a>}

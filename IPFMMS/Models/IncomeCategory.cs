@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 
 namespace IPFMMS.Models
 {
@@ -25,5 +27,28 @@ namespace IPFMMS.Models
         // One income category can be used by many income records.
         public ICollection<Income> Incomes { get; set; }
             = new List<Income>();
+
+        // Chapter 4 attribute names share the existing persisted values. These aliases
+        // add no database columns and keep existing serialization contracts unchanged.
+        [NotMapped, JsonIgnore]
+        public string incomeCategoryId { get => IncomeCategoryId; set => IncomeCategoryId = value; }
+        [NotMapped, JsonIgnore]
+        public string categoryName { get => CategoryName; set => CategoryName = value; }
+        [NotMapped, JsonIgnore]
+        public string? description { get => Description; set => Description = value; }
+        [NotMapped, JsonIgnore]
+        public string status
+        {
+            get => IsActive ? "Active" : "Inactive";
+            set => IsActive = value switch
+            {
+                "Active" => true,
+                "Inactive" => false,
+                _ => throw new ArgumentOutOfRangeException(nameof(value), value,
+                    "Status must be Active or Inactive.")
+            };
+        }
+        [NotMapped, JsonIgnore]
+        public int displayOrder { get => DisplayOrder; set => DisplayOrder = value; }
     }
 }

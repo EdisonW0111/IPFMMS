@@ -1,17 +1,11 @@
 @model IPFMMS.ViewModels.CreateParentStudentLinkViewModel
-@{ ViewData["Title"] = "Link Parent and Student"; Layout = "_DashboardLayout"; }
-<div class="container-fluid py-4" style="max-width:900px">
-    <h2 class="fw-bold">Link Parent and Student</h2>
-    <p class="text-muted">Establish an authorized monitoring relationship between two existing accounts.</p>
-    <div class="card border-0 shadow-sm"><div class="card-body p-4">
-        <div asp-validation-summary="All" class="text-danger" role="alert"></div>
-        @if(Model.Parents.Count == 0 || Model.Students.Count == 0){<div class="alert alert-info">Two different active users are required to create a relationship.</div>}
-        <form asp-action="Create" method="post">
-            <div class="mb-4"><label asp-for="ParentId" class="form-label"></label><select asp-for="ParentId" asp-items="Model.Parents" class="form-select" required><option value="">Select parent account</option></select><span asp-validation-for="ParentId" class="text-danger"></span></div>
-            <div class="mb-4"><label asp-for="UserId" class="form-label"></label><select asp-for="UserId" asp-items="Model.Students" class="form-select" required><option value="">Select student account</option></select><span asp-validation-for="UserId" class="text-danger"></span></div>
-            <p class="small text-muted">Either account can be an ordinary user. The parent is the user who will monitor the student; both keep their existing account and interface. Confirm that this is the authorized Parent–User relationship before creating the link. Linking does not change roles or financial records.</p>
-            <div class="d-flex flex-wrap gap-2"><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-primary" disabled="@(Model.Parents.Count == 0 || Model.Students.Count == 0)">Create relationship</button></div>
-        </form>
-    </div></div>
-</div>
-@section Scripts {<partial name="_ValidationScriptsPartial" />}
+@{ ViewData["Title"] = "Create Linking Request"; Layout = "_DashboardLayout"; }
+@section Styles { <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" /> }
+<div class="container-fluid py-4 admin-page"><div class="admin-form"><div class="admin-heading"><div><h2 class="fw-bold">Create Linking Request</h2><p class="text-muted">Ask one existing user to share monitoring access with another.</p></div></div><div class="card border-0 shadow-sm"><div class="card-body p-4"><form asp-action="Create" method="post"><div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+    @if (Model.Parents.Count < 2 || Model.Students.Count < 2) { <div class="alert alert-info">Two different active user accounts are required to create a request.</div> }
+    <div class="mb-4"><label asp-for="ParentId" class="form-label">Monitoring account</label><select asp-for="ParentId" asp-items="Model.Parents" class="form-select" required><option value="">Select the account that will monitor</option></select><span asp-validation-for="ParentId" class="text-danger small"></span></div>
+    <div class="mb-4"><label asp-for="UserId" class="form-label">Account to be monitored</label><select asp-for="UserId" asp-items="Model.Students" class="form-select" required><option value="">Select the account receiving the request</option></select><span asp-validation-for="UserId" class="text-danger small"></span></div>
+    <div class="alert alert-info">The request starts as Pending. The recipient must accept it from their own account before monitoring is available. Creating a request does not change either user's role.</div>
+    <div class="admin-actions"><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-primary" disabled="@(Model.Parents.Count < 2 || Model.Students.Count < 2)">Send linking request</button></div>
+</form></div></div></div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

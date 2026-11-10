@@ -1,0 +1,89 @@
+@model IPFMMS.ViewModels.SharedFinanceDetailsViewModel
+@{
+    var finance = Model.Finance;
+    var budget = finance.financeType == "MonthlyBudget";
+    ViewData["Title"] = "Shared Finance Details";
+    Layout = "_DashboardLayout";
+}
+<div class="container-fluid py-4">
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-start mb-4">
+        <div><h2 class="fw-bold text-break">@finance.sharedFinanceName</h2><p class="text-muted mb-0">@(budget ? "Monthly budget" : "Savings goal") · @(Model.IsOwner ? "Owner" : "Member") · @finance.status</p></div>
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-action="Index" class="btn btn-outline-secondary">Back to groups</a>
+            @if (Model.IsOwner) {
+                <a asp-action="Edit" asp-route-id="@finance.sharedFinanceId" asp-route-month="@Model.Month" class="btn btn-outline-primary">Edit</a>
+                if (finance.status == "Active") { <a asp-action="Invite" asp-route-id="@finance.sharedFinanceId" class="btn btn-outline-primary">Invite member</a> }
+                <a asp-action="Delete" asp-route-id="@finance.sharedFinanceId" class="btn btn-outline-danger">Delete</a>
+            }
+            @if (Model.CanLeave) {
+                <form asp-action="Leave" method="post"><input type="hidden" name="id" value="@finance.sharedFinanceId" /><button type="submit" class="btn btn-outline-secondary">Leave group</button></form>
+            } else {
+                <button type="button" class="btn btn-outline-secondary" disabled aria-describedby="lastOwnerNotice">Leave group</button>
+            }
+        </div>
+    </div>
+    <partial name="_Messages" />
+    @if (Model.IsOwner) {
+        <div class="alert alert-info"><strong>@Model.ActiveOwnerCount active Owner(s).</strong> Owners share management access to this group. Each person keeps control of their own savings allocations.
+            @if (!Model.CanLeave) { <p id="lastOwnerNotice" class="mb-0 mt-2">You are the last active Owner. Promote an accepted Member to Owner before leaving.@if (finance.status != "Active") { <span> Reactivate the group first to promote a Member.</span> }</p> }
+        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(finance.description)) { <p class="text-break" style="white-space:pre-wrap">@finance.description</p> }
+    @if (finance.status != "Active") { <div class="alert alert-secondary">This group is inactive. Shared records are retained. To release your own savings allocation, use My entries &amp; allocations.</div> }
+    <div class="d-flex flex-wrap gap-2 mb-4">
+        @if (finance.status == "Active") {
+            if (budget) { <a asp-action="Entry" asp-route-id="@finance.sharedFinanceId" asp-route-type="Expense" class="btn btn-primary">Record shared expense</a> }
+            else {
+                <a asp-action="Entry" asp-route-id="@finance.sharedFinanceId" asp-route-type="Contribution" class="btn btn-primary">Add contribution</a>
+                if (Model.MySaved > 0) { <a asp-action="Release" asp-route-id="@finance.sharedFinanceId" class="btn btn-outline-secondary">Release my allocation</a> }
+            }
+        }
+        <a asp-action="MyEntries" class="btn btn-outline-secondary">My entries &amp; allocations</a>
+    </div>
+    <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Shared activity</h3>
+        <form asp-action="Details" asp-route-id="@finance.sharedFinanceId" method="get" class="row g-3 align-items-start mb-4" data-shared-filters data-results="sharedDetailsResults">
+            <input type="hidden" name="id" value="@finance.sharedFinanceId" />
+            <div class="col-12 col-sm-6 col-lg-4"><label for="sharedActivityMonth" class="form-label">Activity month</label><input id="sharedActivityMonth" type="month" name="month" value="@Model.Month" min="1000-01" max="9998-12" class="form-control" /></div>
+            <div class="col-12 col-sm-6 col-lg-4"><label for="sharedActivityType" class="form-label">Entry type</label><select id="sharedActivityType" name="type" class="form-select"><option value="all" selected="@(Model.TransactionType == "all")">All entries</option>@if (budget) { <option value="Expense" selected="@(Model.TransactionType == "Expense")">Expense</option> } else { <option value="Contribution" selected="@(Model.TransactionType == "Contribution")">Contribution</option><option value="Withdrawal" selected="@(Model.TransactionType == "Withdrawal")">Allocation released</option> }</select></div>
+            <div class="col-12 d-flex gap-2"><button type="submit" class="btn btn-primary" data-shared-submit>Filter</button><a asp-action="Details" asp-route-id="@finance.sharedFinanceId" class="btn btn-outline-secondary" data-shared-reset>Reset</a></div>
+        </form>
+        <div class="alert alert-warning" role="alert" data-shared-error hidden>Could not load activity. Your previous results are still displayed. Please try again.</div>
+        <partial name="_SharedDetailsResults" model="Model" />
+    </div></section>
+    <section class="card border-0 shadow-sm"><div class="card-body p-4">
+        <h3 class="h5 fw-bold">Members</h3>
+        <p class="small text-muted">Only accepted members can view shared records. Pending users must accept their invitation themselves. Owners can promote accepted Members to Owner so they can manage the group together. Each person must release their own savings allocation before leaving or being removed.</p>
+        <div class="table-responsive"><table class="table align-middle" style="min-width:760px"><thead class="table-light"><tr><th>Name</th><th>Role</th><th>Membership</th><th>Joined</th>@if (Model.IsOwner) { <th>Actions</th> }</tr></thead><tbody>
+        @foreach (var member in Model.Members) {
+            var memberIsOwner = string.Equals(member.memberRole, "Owner", StringComparison.OrdinalIgnoreCase);
+            var other = !string.Equals(member.userId, Model.Owner, StringComparison.OrdinalIgnoreCase);
+            var eligible = member.User?.AccountStatus == "Active" && (member.User.Role == "User" || member.User.Role == "Parent");
+            <tr>
+                <td class="text-break">@(member.User?.FullName ?? member.userId)</td>
+                <td><span class="badge @(memberIsOwner ? "bg-primary" : "bg-secondary")">@member.memberRole</span></td>
+                <td><span class="badge @(member.invitationStatus == "Accepted" ? "bg-success" : member.invitationStatus == "Pending" ? "bg-warning text-dark" : "bg-secondary")">@member.invitationStatus</span>
+                    @if (Model.IsOwner && member.invitationStatus == "Pending") { <div class="small text-muted mt-1">Email: @(member.emailStatus switch { "Sent" => "Sent", "Failed" => "Delivery failed", "Sending" => "Sending", "Suppressed" => "Not sent — invitation unavailable", "Disabled" => "Off in recipient notification settings", _ => "Queued" })</div> }
+                </td>
+                <td>@(member.joinedDate?.AddHours(8).ToString("dd MMM yyyy") ?? "—")</td>
+                @if (Model.IsOwner) {
+                    <td><div class="d-flex flex-wrap gap-2">
+                    @if (member.memberRole == "Member" && other && finance.status == "Active") {
+                        if (member.invitationStatus == "Pending") {
+                            <form asp-action="MemberAction" method="post"><input type="hidden" name="id" value="@finance.sharedFinanceId" /><input type="hidden" name="userId" value="@member.userId" /><input type="hidden" name="version" value="@member.invitationVersion" /><input type="hidden" name="action" value="Cancel" /><button type="submit" class="btn btn-sm btn-outline-secondary">Cancel invitation</button></form>
+                            if (member.emailStatus != "Sent" && member.emailStatus != "Sending") {
+                                <form asp-action="Resend" method="post"><input type="hidden" name="id" value="@finance.sharedFinanceId" /><input type="hidden" name="userId" value="@member.userId" /><input type="hidden" name="version" value="@member.invitationVersion" /><button type="submit" class="btn btn-sm btn-outline-primary" disabled="@(member.emailAttemptedDate > DateTime.UtcNow.AddMinutes(-1))">@(member.emailStatus == "Failed" ? "Retry email" : "Send email")</button></form>
+                            }
+                        } else if (member.invitationStatus == "Accepted") {
+                            if (eligible) { <a asp-action="PromoteOwner" asp-route-id="@finance.sharedFinanceId" asp-route-userId="@member.userId" class="btn btn-sm btn-outline-primary">Promote to Owner</a> }
+                            <form asp-action="MemberAction" method="post"><input type="hidden" name="id" value="@finance.sharedFinanceId" /><input type="hidden" name="userId" value="@member.userId" /><input type="hidden" name="version" value="@member.invitationVersion" /><input type="hidden" name="action" value="Remove" /><button type="submit" class="btn btn-sm btn-outline-danger">Remove member</button></form>
+                        }
+                    }
+                    </div></td>
+                }
+            </tr>
+        }
+        </tbody></table></div>
+    </div></section>
+</div>
+@section Scripts { <script src="~/js/shared-finance-filters.js" asp-append-version="true"></script> }

@@ -1,0 +1,9 @@
+@model IPFMMS.ViewModels.AdminUserDeleteViewModel
+@{ ViewData["Title"] = "Delete Account"; Layout = "_DashboardLayout"; }
+@section Styles { <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" /> }
+<div class="container-fluid py-4 admin-page"><div class="admin-form"><h2 class="fw-bold mb-4">Delete Account</h2><div class="card border-0 shadow-sm"><div class="card-body p-4">
+    <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
+    <dl class="row admin-detail-list"><dt class="col-sm-3">Account</dt><dd class="col-sm-9">@Model.User.FullName</dd><dt class="col-sm-3">Email</dt><dd class="col-sm-9">@Model.User.Email</dd><dt class="col-sm-3">Account ID</dt><dd class="col-sm-9">@Model.User.UserId</dd></dl>
+    <div class="alert alert-warning">This account will be marked as deleted and will lose access to IPFMMS. Its financial records, relationships and management history will be retained. This action cannot be undone here.</div>
+    <form asp-action="Delete" asp-route-id="@Model.User.UserId" method="post"><input asp-for="EditStamp" type="hidden" /><div class="admin-confirm mb-4"><div class="form-check"><input id="confirmAccountDeletion" type="checkbox" class="form-check-input" required /><label for="confirmAccountDeletion" class="form-check-label">I understand and want to delete this account.</label></div></div><div class="admin-actions"><a asp-action="Details" asp-route-id="@Model.User.UserId" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-danger">Delete account</button></div></form>
+</div></div></div></div>

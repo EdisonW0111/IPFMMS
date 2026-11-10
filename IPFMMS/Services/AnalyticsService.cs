@@ -12,6 +12,7 @@ public sealed class AnalyticsService(ApplicationDbContext db)
         if (start.Day != 1 || end.Day != 1 || start.Year < 1000 || end.Year > 9998 || start > end ||
             (end.Year-start.Year)*12+end.Month-start.Month >= 12)
             throw new ArgumentException("A valid period of up to twelve months is required.");
+        await new BudgetRolloverService(db, new IdGeneratorService(db)).EnsureMonthAsync(userId, end, ct);
         var until = end.AddMonths(1);
         var income = db.Incomes.AsNoTracking().Where(i => i.UserId == userId && i.IncomeDate >= start && i.IncomeDate < until);
         var expenses = db.Expenses.AsNoTracking().Where(e => e.UserId == userId && e.ExpenseDate >= start && e.ExpenseDate < until);
@@ -26,12 +27,16 @@ public sealed class AnalyticsService(ApplicationDbContext db)
             .Where(c => c.SavingsGoal!.UserId == userId && c.ContributionDate >= start && c.ContributionDate < until)
             .GroupBy(c => new { c.ContributionDate.Year, c.ContributionDate.Month })
             .Select(g => new { g.Key.Year, g.Key.Month, Amount = g.Sum(c => c.Amount) }).ToListAsync(ct);
+        var sharedSavings = await SharedSavingsAllocations.Query(db,userId)
+            .Where(t=>t.transactionDate>=start&&t.transactionDate<until)
+            .GroupBy(t=>new{t.transactionDate.Year,t.transactionDate.Month})
+            .Select(g=>new{g.Key.Year,g.Key.Month,Amount=g.Sum(t=>t.transactionType=="Withdrawal"?-t.amount:t.amount)}).ToListAsync(ct);
         var budgets = await db.Budgets.AsNoTracking().Where(b => b.UserId == userId && b.BudgetMonth >= start && b.BudgetMonth < until)
             .OrderBy(b => b.BudgetMonth).ThenBy(b => b.ExpenseCategory!.DisplayOrder).ThenBy(b => b.ExpenseCategory!.CategoryName)
             .Select(b => new { b.BudgetId, b.BudgetMonth, b.BudgetType, b.BudgetAmount, b.BudgetPercentage, b.ExpenseCategoryId, b.ExpenseCategory!.CategoryName }).ToListAsync(ct);
         var incomeByMonth = incomes.ToDictionary(i => (i.Year,i.Month), i => i.Amount);
         var expensesByMonth = spending.GroupBy(e => (e.Year,e.Month)).ToDictionary(g => g.Key,g => g.Sum(e => e.Amount));
-        var savingsByMonth = savings.ToDictionary(s => (s.Year,s.Month),s => s.Amount);
+        var savingsByMonth = savings.Concat(sharedSavings).GroupBy(s=>(s.Year,s.Month)).ToDictionary(g=>g.Key,g=>g.Sum(s=>s.Amount));
         var categoryMonths = spending.ToDictionary(e => (e.Year,e.Month,e.ExpenseCategoryId),e => e.Amount);
         var model = new AnalyticsViewModel { FromMonth = start, ToMonth = end };
         for (var month = start; month <= end; month = month.AddMonths(1))

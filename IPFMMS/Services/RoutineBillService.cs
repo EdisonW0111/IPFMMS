@@ -25,17 +25,36 @@ public sealed class RoutineBillService(ApplicationDbContext db, IdGeneratorServi
         db.RoutineBills.Add(bill);await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return bill.billId;
     }
 
-    public async Task<RoutineBillIndexViewModel> ListAsync(string owner, DateTime today, int page=1, CancellationToken ct=default)
+    public async Task<RoutineBillIndexViewModel> ListAsync(string owner, DateTime today, int page=1, CancellationToken ct=default,
+        string? search=null,string type="all",string status="all")
     {
-        var query=db.RoutineBills.AsNoTracking().Where(b=>b.userId==owner&&b.status!="Deleted");
-        var until=today.Date.AddDays(30);
+        search=search?.Trim();
+        if(search?.Length>100)throw new InvalidOperationException("Search must not exceed 100 characters.");
+        if(type!="all"&&!RoutineBillOptions.Types.Contains(type))throw new InvalidOperationException("Choose a valid bill type.");
+        if(!new[]{"all","Active","Upcoming","DueToday","Overdue","Inactive","Completed"}.Contains(status))throw new InvalidOperationException("Choose a valid bill status.");
+        var all=db.RoutineBills.AsNoTracking().Where(b=>b.userId==owner&&b.status!="Deleted");
+        today=today.Date;var until=today.AddDays(30);
         var model=new RoutineBillIndexViewModel
         {
-            Today=today.Date,Count=await query.CountAsync(ct),ActiveCount=await query.CountAsync(b=>b.status=="Active",ct),
-            UpcomingCount=await query.CountAsync(b=>b.status=="Active"&&b.dueDate>=today.Date&&b.dueDate<=until,ct),
-            OverdueCount=await query.CountAsync(b=>b.status=="Active"&&b.dueDate<today.Date,ct)
+            Today=today,Search=search,Type=type,Status=status,
+            ActiveCount=await all.CountAsync(b=>b.status=="Active",ct),
+            UpcomingCount=await all.CountAsync(b=>b.status=="Active"&&b.dueDate>=today&&b.dueDate<=until,ct),
+            OverdueCount=await all.CountAsync(b=>b.status=="Active"&&b.dueDate<today,ct)
         };
-        model.Page=Math.Clamp(page,1,model.Pages);
+        var query=all;
+        if(!string.IsNullOrEmpty(search))query=query.Where(b=>b.billName.Contains(search)||b.ExpenseCategory!.CategoryName.Contains(search));
+        if(type!="all")query=query.Where(b=>b.billType==type);
+        query=status switch
+        {
+            "Active"=>query.Where(b=>b.status=="Active"),
+            "Upcoming"=>query.Where(b=>b.status=="Active"&&b.dueDate>today&&b.dueDate<=until),
+            "DueToday"=>query.Where(b=>b.status=="Active"&&b.dueDate==today),
+            "Overdue"=>query.Where(b=>b.status=="Active"&&b.dueDate<today),
+            "Inactive"=>query.Where(b=>b.status=="Inactive"),
+            "Completed"=>query.Where(b=>b.status=="Completed"),
+            _=>query
+        };
+        model.Count=await query.CountAsync(ct);model.Page=Math.Clamp(page,1,model.Pages);
         model.Bills=await query.Include(b=>b.ExpenseCategory).OrderBy(b=>b.dueDate).ThenBy(b=>b.billId).Skip((model.Page-1)*20).Take(20).ToListAsync(ct);
         return model;
     }

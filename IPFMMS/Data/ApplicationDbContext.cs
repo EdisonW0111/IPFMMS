@@ -11,6 +11,14 @@ namespace IPFMMS.Data
         {
         }
 
+        public DbSet<SharedFinance> SharedFinances { get; set; }
+        public DbSet<SharedFinanceMember> SharedFinanceMembers { get; set; }
+        public DbSet<SharedBudget> SharedBudgets { get; set; }
+        public DbSet<SharedSavingsGoal> SharedSavingsGoals { get; set; }
+        public DbSet<SharedFinanceTransaction> SharedFinanceTransactions { get; set; }
+        public DbSet<DebtRateChange> DebtRateChanges { get; set; }
+        public DbSet<Debt> Debts { get; set; }
+        public DbSet<DebtRepayment> DebtRepayments { get; set; }
         public DbSet<RoutineBill> RoutineBills { get; set; }
         public DbSet<RoutineBillPayment> RoutineBillPayments { get; set; }
         public DbSet<Notification> Notifications { get; set; }
@@ -18,6 +26,8 @@ namespace IPFMMS.Data
         public DbSet<SpendingPrediction> SpendingPredictions { get; set; }
         public DbSet<FinancialHealthRecord> FinancialHealthRecords { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<AdminAuditEntry> AdminAuditEntries { get; set; }
+        public DbSet<UserPreference> UserPreferences { get; set; }
         public DbSet<EmailOTP> EmailOTPs { get; set; }
         public DbSet<IdCounter> IdCounters { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
@@ -36,6 +46,55 @@ namespace IPFMMS.Data
             ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<AdminAuditEntry>(e =>
+            {
+                e.ToTable("AdminAuditEntries");
+                e.Property(a => a.AuditId).ValueGeneratedNever();
+                e.HasOne(a => a.Admin).WithMany().HasForeignKey(a => a.AdminUserId).OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(a => new { a.CreatedDate, a.AuditId });
+                e.HasIndex(a => new { a.EntityType, a.EntityId, a.CreatedDate });
+            });
+            modelBuilder.Entity<UserPreference>(e =>
+            {
+                e.ToTable("UserPreferences");
+                e.HasKey(p => p.UserId);
+                e.Property(p => p.UserId).ValueGeneratedNever();
+                e.Property(p => p.Theme).HasDefaultValue("Light");
+                e.Property(p => p.BillInApp).HasDefaultValue(true);
+                e.Property(p => p.BillEmail).HasDefaultValue(true);
+                e.Property(p => p.MonitoringInApp).HasDefaultValue(true);
+                e.Property(p => p.MonitoringEmail).HasDefaultValue(true);
+                e.Property(p => p.InvitationEmail).HasDefaultValue(true);
+                e.HasOne(p => p.User).WithOne().HasForeignKey<UserPreference>(p => p.UserId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<SharedFinance>(e=>{e.HasOne(g=>g.Owner).WithMany().HasForeignKey(g=>g.ownerId).OnDelete(DeleteBehavior.Restrict);e.HasIndex(g=>new{g.ownerId,g.status});});
+            modelBuilder.Entity<SharedFinanceMember>(e=>{e.HasKey(m=>new{m.sharedFinanceId,m.userId});e.HasOne(m=>m.Finance).WithMany().HasForeignKey(m=>m.sharedFinanceId).OnDelete(DeleteBehavior.Restrict);e.HasOne(m=>m.User).WithMany().HasForeignKey(m=>m.userId).OnDelete(DeleteBehavior.Restrict);e.HasIndex(m=>new{m.userId,m.invitationStatus});});
+            modelBuilder.Entity<SharedBudget>(e=>{e.HasOne(b=>b.Finance).WithMany().HasForeignKey(b=>b.sharedFinanceId).OnDelete(DeleteBehavior.Restrict);e.HasIndex(b=>new{b.sharedFinanceId,b.budgetMonth}).IsUnique();});
+            modelBuilder.Entity<SharedSavingsGoal>(e=>{e.HasOne(g=>g.Finance).WithMany().HasForeignKey(g=>g.sharedFinanceId).OnDelete(DeleteBehavior.Restrict);e.HasIndex(g=>g.sharedFinanceId).IsUnique();});
+            modelBuilder.Entity<SharedFinanceTransaction>(e=>{e.HasOne(t=>t.Finance).WithMany().HasForeignKey(t=>t.sharedFinanceId).OnDelete(DeleteBehavior.Restrict);e.HasOne(t=>t.User).WithMany().HasForeignKey(t=>t.userId).OnDelete(DeleteBehavior.Restrict);e.HasOne(t=>t.ExpenseCategory).WithMany().HasForeignKey(t=>t.expenseCategoryId).OnDelete(DeleteBehavior.Restrict);e.HasOne(t=>t.Expense).WithMany().HasForeignKey(t=>t.expenseId).OnDelete(DeleteBehavior.Restrict);e.HasIndex(t=>t.expenseId).IsUnique();e.HasIndex(t=>new{t.userId,t.submissionKey}).IsUnique();e.HasIndex(t=>new{t.sharedFinanceId,t.transactionDate});});
+            modelBuilder.Entity<DebtRateChange>(entity =>
+            {
+                entity.HasOne(c=>c.Debt).WithMany().HasForeignKey(c=>c.debtId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasIndex(c=>new{c.debtId,c.effectiveDueDate});
+            });
+            modelBuilder.Entity<Debt>(entity =>
+            {
+                entity.Property(d=>d.debtId).ValueGeneratedNever();
+                entity.Property(d=>d.calculationMode).HasDefaultValue("Manual");
+                entity.Property(d=>d.rateType).HasDefaultValue("Fixed");
+                entity.Property(d=>d.loanDueDay).HasDefaultValue(1);
+                entity.HasIndex(d=>new{d.userId,d.status,d.dueDate});
+                entity.HasOne(d=>d.User).WithMany().HasForeignKey(d=>d.userId).OnDelete(DeleteBehavior.Restrict);
+            });
+            modelBuilder.Entity<DebtRepayment>(entity =>
+            {
+                entity.Property(p=>p.repaymentId).ValueGeneratedNever();
+                entity.Property(p=>p.allocationMethod).HasDefaultValue("Manual");
+                entity.HasIndex(p=>new{p.debtId,p.repaymentDate});
+                entity.HasIndex(p=>p.expenseId).IsUnique();
+                entity.HasOne(p=>p.Debt).WithMany().HasForeignKey(p=>p.debtId).OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(p=>p.Expense).WithMany().HasForeignKey(p=>p.expenseId).OnDelete(DeleteBehavior.Restrict);
+            });
             modelBuilder.Entity<RoutineBill>(entity =>
             {
                 entity.ToTable("RoutineBills");
@@ -61,6 +120,7 @@ namespace IPFMMS.Data
                 entity.HasKey(n => n.notificationId);
                 entity.Property(n => n.notificationId).ValueGeneratedNever();
                 entity.Property(n => n.emailStatus).HasDefaultValue("NotRequested");
+                entity.Property(n => n.showInApp).HasDefaultValue(true);
                 entity.HasIndex(n => n.eventKey).IsUnique();
                 entity.HasIndex(n => new { n.userId, n.isRead, n.createdDateTime });
                 entity.HasOne(n => n.Receiver).WithMany().HasForeignKey(n => n.userId).OnDelete(DeleteBehavior.Restrict);

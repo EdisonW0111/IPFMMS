@@ -15,10 +15,8 @@ namespace IPFMMS.Data
                 string name = CategoryDefaults.IncomeNames[index];
                 if (incomeCategories.TryGetValue(name, out var existing))
                 {
-                    // Fill only the unassigned position. Preserve identity,
-                    // activation state, and any ordering assigned by an admin.
-                    if (existing.DisplayOrder == CategoryDefaults.UnassignedOrder)
-                        existing.DisplayOrder = index + 1;
+                    // Existing values belong to management, including an intentional order of1000.
+                    // Seeding supplies missing defaults; it never resets an existing category.
                     continue;
                 }
                 var category = new IncomeCategory
@@ -40,8 +38,7 @@ namespace IPFMMS.Data
                 string name = CategoryDefaults.ExpenseNames[index];
                 if (expenseCategories.TryGetValue(name, out var existing))
                 {
-                    if (existing.DisplayOrder == CategoryDefaults.UnassignedOrder)
-                        existing.DisplayOrder = index + 1;
+                    // Preserve activation, name, description and administrator-assigned order.
                     continue;
                 }
                 var category = new ExpenseCategory

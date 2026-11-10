@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 
 namespace IPFMMS.Models
 {
@@ -35,5 +37,24 @@ namespace IPFMMS.Models
         public string AccountStatus { get; set; } = IPFMMS.Models.AccountStatus.Pending;
 
         public int SecurityVersion { get; set; } = 1;
+
+        // Chapter 4 attribute names share the existing persisted values. These aliases
+        // add no database columns and keep existing serialization contracts unchanged.
+        [NotMapped, JsonIgnore]
+        public string userId { get => UserId; set => UserId = value; }
+        [NotMapped, JsonIgnore]
+        public string fullName { get => FullName; set => FullName = value; }
+        [NotMapped, JsonIgnore]
+        public string email { get => Email; set => Email = value; }
+        [NotMapped, JsonIgnore]
+        public string passwordHash { get => PasswordHash; set => PasswordHash = value; }
+        [NotMapped, JsonIgnore]
+        public string? phoneNumber { get => PhoneNumber; set => PhoneNumber = value; }
+        [NotMapped, JsonIgnore]
+        public string role { get => Role; set => Role = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime createdDate { get => CreatedDate; set => CreatedDate = value; }
+        [NotMapped, JsonIgnore]
+        public string accountStatus { get => AccountStatus; set => AccountStatus = value; }
     }
 }

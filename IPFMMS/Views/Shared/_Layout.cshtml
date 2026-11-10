@@ -1,12 +1,17 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+@inject IPFMMS.Services.UserPreferenceService Preferences
+@{ var ipfmmsTheme = await Preferences.ThemeAsync(User, Context.Request.Cookies["IPFMMS.Theme"]); }
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="@ipfmmsTheme.ToLowerInvariant()">
 <head>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - IPFMMS</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/IPFMMS.styles.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
 </head>
 <body>
     <header>

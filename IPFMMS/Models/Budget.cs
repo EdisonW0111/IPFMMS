@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -52,5 +53,26 @@ namespace IPFMMS.Models
 
         [ForeignKey(nameof(ExpenseCategoryId))]
         public ExpenseCategory? ExpenseCategory { get; set; }
+
+        // Chapter 4 attribute names share the existing persisted values. These aliases
+        // add no database columns and keep existing serialization contracts unchanged.
+        [NotMapped, JsonIgnore]
+        public string budgetId { get => BudgetId; set => BudgetId = value; }
+        [NotMapped, JsonIgnore]
+        public string userId { get => UserId; set => UserId = value; }
+        [NotMapped, JsonIgnore]
+        public string expenseCategoryId { get => ExpenseCategoryId; set => ExpenseCategoryId = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime budgetMonth { get => BudgetMonth; set => BudgetMonth = value; }
+        [NotMapped, JsonIgnore]
+        public string budgetType { get => BudgetType; set => BudgetType = value; }
+        [NotMapped, JsonIgnore]
+        public decimal? budgetAmount { get => BudgetAmount; set => BudgetAmount = value; }
+        [NotMapped, JsonIgnore]
+        public decimal? budgetPercentage { get => BudgetPercentage; set => BudgetPercentage = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime createdDate { get => CreatedDate; set => CreatedDate = value; }
+        [NotMapped, JsonIgnore]
+        public string? notes { get => Notes; set => Notes = value; }
     }
 }

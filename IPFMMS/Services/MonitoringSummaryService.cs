@@ -10,12 +10,13 @@ public sealed class MonitoringSummaryService(ApplicationDbContext db, Monitoring
         var current = new DateTime(today.Year, today.Month, 1);
         if (month < new DateTime(1000, 4, 1) || month > current || month.Day != 1 || month.TimeOfDay != TimeSpan.Zero)
             throw new ArgumentException("Choose a valid past or current month.");
-        // Shared account locks serialize this read with disconnect/disable operations.
-        // No rows are inserted, updated or deleted by this transaction.
-        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead, ct);
-        await db.Users.FromSqlInterpolated($"SELECT * FROM `Users` WHERE `UserId` IN ({viewer}, {student}) ORDER BY `UserId` LOCK IN SHARE MODE")
+        // Account locks serialize consent checks and system-approved repeat generation.
+        // A viewer cannot edit budgets; only the student's existing repeat instructions apply.
+        await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
+        await db.Users.FromSqlInterpolated($"SELECT * FROM `Users` WHERE `UserId` IN ({viewer}, {student}) ORDER BY `UserId` FOR UPDATE")
             .AsNoTracking().ToListAsync(ct);
         if (!await links.CanMonitorAsync(viewer, student, ct)) return null;
+        await new BudgetRolloverService(db, new IdGeneratorService(db)).EnsureReadyThroughMonthInTransactionAsync(student, month, ct);
         var cutoff = month == current ? today.Date.AddDays(1) : month.AddMonths(1);
         var tomorrow = today.Date.AddDays(1);
         var model = new MonitoringSummaryViewModel
@@ -24,7 +25,8 @@ public sealed class MonitoringSummaryService(ApplicationDbContext db, Monitoring
             Month = month, AsOfDate = today.Date,
             Income = await db.Incomes.Where(i => i.UserId == student && i.IncomeDate >= month && i.IncomeDate < cutoff).SumAsync(i => (decimal?)i.Amount, ct) ?? 0m,
             Expenses = await db.Expenses.Where(e => e.UserId == student && e.ExpenseDate >= month && e.ExpenseDate < cutoff).SumAsync(e => (decimal?)e.Amount, ct) ?? 0m,
-            SavingsContributions = await db.SavingsContributions.Where(c => c.SavingsGoal!.UserId == student && c.ContributionDate >= month && c.ContributionDate < cutoff).SumAsync(c => (decimal?)c.Amount, ct) ?? 0m
+            SavingsContributions = (await db.SavingsContributions.Where(c => c.SavingsGoal!.UserId == student && c.ContributionDate >= month && c.ContributionDate < cutoff).SumAsync(c => (decimal?)c.Amount, ct) ?? 0m)
+                + await SharedSavingsAllocations.NetAsync(db,student,month,cutoff,ct)
         };
         var categories = await db.Expenses.AsNoTracking().Where(e => e.UserId == student && e.ExpenseDate >= month && e.ExpenseDate < cutoff)
             .GroupBy(e => e.ExpenseCategoryId).Select(g => new { Id = g.Key, Amount = g.Sum(e => e.Amount) }).ToListAsync(ct);

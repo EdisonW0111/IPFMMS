@@ -13,7 +13,7 @@ namespace IPFMMS.Data
         public static IReadOnlyList<string> ExpenseNames { get; } = Array.AsReadOnly(new[]
         {
             "Food & Drinks", "Transportation", "Education", "Shopping", "Entertainment",
-            "Bills & Utilities", "Healthcare", "Loan Interest & Fees", "Other Expenses"
+            "Bills & Utilities", "Healthcare", "Loan Interest & Fees", "Other Expenses", "Debt Repayment", "Shared Savings"
         });
     }
 }

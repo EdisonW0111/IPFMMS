@@ -1,13 +1,16 @@
-﻿@model IPFMMS.ViewModels.LoginViewModel
+@inject IPFMMS.Services.UserPreferenceService Preferences
+@model IPFMMS.ViewModels.LoginViewModel
 
 @{
     ViewData["Title"] = "Login";
     Layout = null;
 }
 
+@{ var ipfmmsTheme = await Preferences.ThemeAsync(User, Context.Request.Cookies["IPFMMS.Theme"]); }
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="@ipfmmsTheme.ToLowerInvariant()">
 <head>
+    <script src="~/js/theme.js" asp-append-version="true"></script>
     <meta charset="utf-8" />
 
     <meta name="viewport"
@@ -24,6 +27,7 @@
 
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js"
             async defer></script>
+    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
 </head>
 <body>
     <main class="login-container">

@@ -1,0 +1,22 @@
+@model IPFMMS.ViewModels.DebtIndexViewModel
+@{ViewData["Title"]="Debt Management";Layout="_DashboardLayout";}
+<div class="container-fluid py-4">
+<div class="d-flex justify-content-between flex-wrap gap-3 mb-4"><div><h2 class="fw-bold">Debt Management</h2><p class="text-muted mb-0">Track your debts, outstanding balances, and repayment progress.</p></div><div><a asp-action="Calculator" class="btn btn-outline-secondary me-2">Loan calculator</a><a asp-action="Create" class="btn btn-primary">Add debt</a></div></div>
+<partial name="_Messages"/>
+<div class="row g-3 mb-3">
+<div class="col-12 col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Total outstanding</div><div class="h3 fw-bold text-break">RM @Model.Outstanding.ToString("N2")</div></div></div></div>
+<div class="col-12 col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Principal repaid</div><div class="h3 fw-bold text-success text-break">RM @Model.TotalPaid.ToString("N2")</div></div></div></div>
+<div class="col-12 col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Planned monthly repayment</div><div class="h3 fw-bold text-break">RM @Model.MonthlyRepayment.ToString("N2")</div></div></div></div>
+<div class="col-12 col-md-6 col-xl-3"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4"><div class="text-muted small">Earliest active due date</div><div class="h4 fw-bold">@(Model.UpcomingDate?.ToString("dd MMM yyyy")??"None")</div><div class="small text-muted">@Model.ActiveCount active debt(s)</div></div></div></div>
+</div>
+<p class="small text-muted mb-4">Summary covers all non-deleted debts. Principal repaid includes amounts paid before tracking began. Monthly repayment is a plan for active debts; it is not automatically deducted.</p>
+<div class="card border-0 shadow-sm"><div class="card-body p-4">
+<form asp-action="Index" method="get" class="row g-3 mb-4 align-items-start" data-debt-filters data-results="debtResults">
+<div class="col-12 col-lg-5"><label for="debtSearch" class="form-label">Search</label><input id="debtSearch" type="search" name="search" value="@Model.Search" maxlength="100" class="form-control" placeholder="Debt name"/></div>
+<div class="col-12 col-sm-6 col-lg-3"><label for="debtStatus" class="form-label">Status</label><select id="debtStatus" name="status" class="form-select">@foreach(var s in new[]{"all","Active","Inactive","Paid","Overdue"}){<option value="@s" selected="@(Model.Status==s)">@(s=="all"?"All statuses":s)</option>}</select></div>
+<div class="col-12 col-sm-6 col-lg-4"><label for="debtType" class="form-label">Debt type</label><select id="debtType" name="type" class="form-select"><option value="">All types</option>@foreach(var t in DebtOptions.Types){<option value="@t" selected="@(Model.Type==t)">@t</option>}</select></div>
+<div class="col-12 d-flex gap-2"><button type="submit" class="btn btn-primary" data-filter-submit>Filter</button><a asp-action="Index" class="btn btn-outline-secondary" data-debt-reset>Reset</a></div>
+</form><div class="alert alert-warning" role="alert" data-debt-error hidden>Could not load results. Previous results are retained. Please try again.</div>
+<partial name="_DebtResults" model="Model"/>
+</div></div></div>
+@section Scripts{<script src="~/js/debt-filters.js" asp-append-version="true"></script>}

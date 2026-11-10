@@ -1,0 +1,5 @@
+@model IPFMMS.ViewModels.AdminCategoryFormViewModel
+@{ ViewData["Title"] = "Edit " + Model.Kind + " Category"; Layout = "_DashboardLayout"; }
+@section Styles { <link rel="stylesheet" href="~/css/admin.css" asp-append-version="true" /> }
+<div class="container-fluid py-4 admin-page"><div class="admin-form"><div class="admin-heading"><div><h2 class="fw-bold">Edit @Model.Kind Category</h2><p class="text-muted">Update the category name, ordering or availability.</p></div></div><div class="card border-0 shadow-sm"><div class="card-body p-4"><form asp-action="Edit" asp-route-kind="@Model.Kind" asp-route-id="@Model.CategoryId" method="post"><partial name="_CategoryFields" model="Model" /><div class="admin-actions mt-4"><a asp-action="Index" asp-route-kind="@Model.Kind" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-primary">Save changes</button></div></form></div></div></div></div>
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

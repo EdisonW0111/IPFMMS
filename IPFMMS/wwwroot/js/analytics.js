@@ -13,6 +13,13 @@
         return node;
     }
     function drawCharts() {
+        const tokens = getComputedStyle(document.documentElement);
+        const palette = {
+            text: tokens.getPropertyValue('--ipfmms-chart-text').trim() || '#526d7b',
+            grid: tokens.getPropertyValue('--ipfmms-chart-grid').trim() || '#dde6eb',
+            income: tokens.getPropertyValue('--ipfmms-chart-income').trim() || '#16899a',
+            expense: tokens.getPropertyValue('--ipfmms-chart-expense').trim() || '#dc5666'
+        };
         const source = results.querySelector('.analytics-chart-data');
         if (!source) return;
         const rows = JSON.parse(source.textContent);
@@ -28,19 +35,19 @@
             svg.append(svgNode('title',{},trend?'Monthly spending trend':'Income versus expenses'));
             for (let i=0;i<=4;i++) {
                 const value = ceiling*i/4, position = y(value);
-                svg.append(svgNode('line',{x1:left,y1:position,x2:width-right,y2:position,stroke:'#dde6eb'}));
-                svg.append(svgNode('text',{x:left-10,y:position+4,'text-anchor':'end',fill:'#526d7b','font-size':12},new Intl.NumberFormat('en-MY',{notation:'compact',maximumFractionDigits:1}).format(value)));
+                svg.append(svgNode('line',{x1:left,y1:position,x2:width-right,y2:position,stroke:palette.grid}));
+                svg.append(svgNode('text',{x:left-10,y:position+4,'text-anchor':'end',fill:palette.text,'font-size':12},new Intl.NumberFormat('en-MY',{notation:'compact',maximumFractionDigits:1}).format(value)));
             }
-            svg.append(svgNode('text',{x:left,y:14,fill:'#526d7b','font-size':12},'RM'));
-            if (trend && rows.length > 1) svg.append(svgNode('polyline',{points:rows.map((r,i)=>`${x(i)},${y(r.expenses)}`).join(' '),fill:'none',stroke:'#16899a','stroke-width':3}));
+            svg.append(svgNode('text',{x:left,y:14,fill:palette.text,'font-size':12},'RM'));
+            if (trend && rows.length > 1) svg.append(svgNode('polyline',{points:rows.map((r,i)=>`${x(i)},${y(r.expenses)}`).join(' '),fill:'none',stroke:palette.income,'stroke-width':3}));
             rows.forEach((row,i) => {
-                svg.append(svgNode('text',{x:x(i),y:height-33,'text-anchor':'middle',fill:'#526d7b','font-size':rows.length>8?10:12},row.label));
+                svg.append(svgNode('text',{x:x(i),y:height-33,'text-anchor':'middle',fill:palette.text,'font-size':rows.length>8?10:12},row.label));
                 if (trend) {
-                    const dot = svgNode('circle',{cx:x(i),cy:y(row.expenses),r:5,fill:'#16899a',tabindex:0});
+                    const dot = svgNode('circle',{cx:x(i),cy:y(row.expenses),r:5,fill:palette.income,tabindex:0});
                     dot.append(svgNode('title',{},`${row.label}: ${money.format(row.expenses)}`));svg.append(dot);
                 } else {
                     const barW = Math.min(28,step*.32);
-                    for (const [key,offset,color] of [['income',-barW,'#16899a'],['expenses',1,'#dc5666']]) {
+                    for (const [key,offset,color] of [['income',-barW,palette.income],['expenses',1,palette.expense]]) {
                         const bar = svgNode('rect',{x:x(i)+offset,y:y(row[key]),width:barW-1,height:Math.max(0,top+plotH-y(row[key])),fill:color,rx:2,tabindex:0});
                         bar.append(svgNode('title',{},`${row.label} ${key}: ${money.format(row[key])}`));svg.append(bar);
                     }
@@ -103,5 +110,6 @@
     });
     let resizeTimer;
     window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(drawCharts,150);});
+    window.addEventListener('ipfmms:themechange', drawCharts);
     drawCharts();
 })();

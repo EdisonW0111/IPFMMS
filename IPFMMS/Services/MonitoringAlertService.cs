@@ -24,6 +24,11 @@ public sealed class MonitoringAlertService(ApplicationDbContext db, IdGeneratorS
                 .AsNoTracking().ToListAsync(ct);
             var link = await db.ParentStudentLinks.AsNoTracking().SingleOrDefaultAsync(l => l.linkId == candidate.linkId, ct);
             if (link == null || link.requestVersion != candidate.requestVersion || !await links.CanMonitorAsync(recipient, candidate.userId, ct)) continue;
+            // Both accounts are locked and consent was rechecked. Materialize the current
+            // repeating budget before comparing expenses, even if the student has not signed in.
+            await new BudgetRolloverService(db, new IdGeneratorService(db))
+                .EnsureReadyThroughMonthInTransactionAsync(candidate.userId, month, ct);
+            var preferences = await db.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == recipient, ct) ?? new UserPreference();
             var name = await db.Users.Where(u => u.UserId == candidate.userId).Select(u => u.FullName).SingleAsync(ct);
             var income = await db.Incomes.Where(i => i.UserId == candidate.userId && i.IncomeDate >= month && i.IncomeDate < cutoff)
                 .SumAsync(i => (decimal?)i.Amount, ct) ?? 0m;
@@ -43,7 +48,8 @@ public sealed class MonitoringAlertService(ApplicationDbContext db, IdGeneratorS
                 {
                     notificationId = await ids.GenerateIdAsync("NTF"), userId = recipient, relatedUserId = candidate.userId,
                     notificationType = type, title = title, message = message, createdDateTime = DateTime.UtcNow,
-                    eventKey = key, linkId = link.linkId, requestVersion = link.requestVersion, sourceMonth = month, emailStatus = "Pending"
+                    eventKey = key, linkId = link.linkId, requestVersion = link.requestVersion, sourceMonth = month,
+                    showInApp = preferences.MonitoringInApp, emailStatus = preferences.MonitoringEmail ? "Pending" : "Disabled"
                 });
             }
             string Money(decimal amount) => amount.ToString("N2", CultureInfo.InvariantCulture);

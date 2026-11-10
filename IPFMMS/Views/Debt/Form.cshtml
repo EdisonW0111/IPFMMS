@@ -1,0 +1,66 @@
+@model IPFMMS.ViewModels.DebtFormViewModel
+@using System.Globalization
+@{
+    var edit=!string.IsNullOrEmpty(Model.DebtId);
+    var calculated=Model.CalculationMode=="Calculated";
+    var floating=Model.RateType=="Floating";
+    var locked=Model.HasRepayments&&calculated;
+    ViewData["Title"]=edit?"Edit Debt":"Add Debt";
+    Layout="_DashboardLayout";
+}
+<div class="container-fluid py-4" style="max-width:1000px">
+    <div class="d-flex flex-wrap gap-3 justify-content-between align-items-start mb-3"><div><h2 class="fw-bold">@ViewData["Title"]</h2><p class="text-muted mb-0">Choose a calculated loan or keep a manually tracked debt.</p></div><a asp-action="Calculator" class="btn btn-outline-secondary">Compare loan estimates</a></div>
+    <div class="card border-0 shadow-sm"><div class="card-body p-4 p-md-5">
+    <form id="debtLoanForm" data-loan-locked="@locked.ToString().ToLowerInvariant()" data-has-repayments="@Model.HasRepayments.ToString().ToLowerInvariant()" asp-action="@(edit?"Edit":"Create")" asp-route-id="@Model.DebtId" method="post">
+        <input asp-for="DebtId" type="hidden"/><input asp-for="Revision" type="hidden"/>
+        <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+        <div class="mb-4"><label asp-for="DebtName" class="form-label"></label><input asp-for="DebtName" class="form-control" maxlength="100"/><span asp-validation-for="DebtName" class="text-danger"></span></div>
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6"><label asp-for="DebtType" class="form-label"></label><select asp-for="DebtType" class="form-select">@foreach(var t in DebtOptions.Types){<option value="@t">@t</option>}</select><span asp-validation-for="DebtType" class="text-danger"></span></div>
+            <div class="col-12 col-md-6"><label asp-for="CalculationMode" class="form-label">Repayment calculation</label><select asp-for="CalculationMode" class="form-select" disabled="@Model.HasRepayments"><option value="Calculated">Calculated loan</option><option value="Manual">Manual debt tracking</option></select>@if(Model.HasRepayments){<input type="hidden" name="CalculationMode" value="@Model.CalculationMode"/>}<div id="debtModeHint" class="form-text">@(calculated?"Calculate a monthly reducing-balance estimate from your principal, rate and term.":"Enter your balance and planned repayment. No interest is automatically added.")</div></div>
+        </div>
+        @if(locked){<div class="alert alert-info">Loan terms are locked because repayments already exist. You can still edit the name, type, description and status. Change a variable rate from the loan details page.</div>}
+        <fieldset id="loanConfiguration" class="mb-4" hidden="@(!calculated)" disabled="@(!calculated||locked)">
+            <legend class="h5 fw-bold">Loan terms</legend>
+            <div class="row g-3">
+                <div class="col-12 col-md-6"><label asp-for="RateType" class="form-label">Rate type</label><select asp-for="RateType" class="form-select"><option value="Fixed">Fixed rate</option><option value="Floating">Variable (floating) rate</option></select><div class="form-text">Fixed keeps the selected rate. Variable uses your lender's reference rate plus spread.</div></div>
+                <div class="col-12 col-md-6"><label asp-for="LoanTermMonths" class="form-label"></label><input asp-for="LoanTermMonths" type="number" min="1" max="480" step="1" class="form-control"/><span asp-validation-for="LoanTermMonths" class="text-danger"></span><div id="loanTermHint" class="form-text">@(Model.IsExistingLoan?"Enter the months remaining on your current loan.":"Enter the full repayment term, for example 60 months for five years.")</div></div>
+                <div class="col-12"><div class="form-check"><input asp-for="IsExistingLoan" class="form-check-input"/><label asp-for="IsExistingLoan" class="form-check-label">This loan has already started</label></div><div id="existingLoanHint" class="form-text">For an existing loan, enter the lender's remaining principal and remaining term once. A new loan starts with the original principal outstanding.</div></div>
+                <div class="col-12 col-md-6"><label asp-for="LoanStartDate" class="form-label"></label><input asp-for="LoanStartDate" type="date" min="1000-01-01" class="form-control"/><span asp-validation-for="LoanStartDate" class="text-danger"></span><div class="form-text">For an existing loan, use the date this opening balance begins being tracked here.</div></div>
+            </div>
+            <fieldset id="floatingRateFields" class="mt-3" hidden="@(!floating)" disabled="@(!floating)">
+                <legend class="h6 fw-bold">Reference rate from your lender</legend>
+                <div class="row g-3">
+                    <div class="col-12 col-md-4"><label asp-for="ReferenceRateName" class="form-label">Reference type</label><select asp-for="ReferenceRateName" class="form-select"><option value="SBR">SBR</option><option value="BR">BR</option><option value="BLR">BLR</option><option value="Other">Other</option></select></div>
+                    <div class="col-12 col-md-4"><label asp-for="ReferenceRate" class="form-label"></label><input asp-for="ReferenceRate" asp-format="{0:0.####}" type="text" inputmode="decimal" class="form-control"/><span asp-validation-for="ReferenceRate" class="text-danger"></span></div>
+                    <div class="col-12 col-md-4"><label asp-for="RateSpread" class="form-label"></label><input asp-for="RateSpread" asp-format="{0:0.####}" type="text" inputmode="decimal" class="form-control"/><span asp-validation-for="RateSpread" class="text-danger"></span><div class="form-text">Percentage points added to the reference rate; may be negative.</div></div>
+                </div>
+                <p class="small text-muted mt-2 mb-0">Enter rates from your bank's offer or statement. Reference rates are not automatically fetched.</p>
+            </fieldset>
+        </fieldset>
+        @if(locked){
+            <input type="hidden" name="RateType" value="@Model.RateType"/>
+            <input type="hidden" name="IsExistingLoan" value="@Model.IsExistingLoan.ToString().ToLowerInvariant()"/>
+            <input type="hidden" name="LoanTermMonths" value="@Model.LoanTermMonths"/>
+            <input type="hidden" name="LoanStartDate" value="@Model.LoanStartDate?.ToString("yyyy-MM-dd")"/>
+            <input type="hidden" name="ReferenceRateName" value="@Model.ReferenceRateName"/>
+            <input type="hidden" name="ReferenceRate" value="@Model.ReferenceRate?.ToString(CultureInfo.InvariantCulture)"/>
+            <input type="hidden" name="RateSpread" value="@Model.RateSpread?.ToString(CultureInfo.InvariantCulture)"/>
+        }
+        <div class="row g-3">
+            <div class="col-12 col-md-6 mb-3"><label asp-for="OriginalAmount" class="form-label"></label><input asp-for="OriginalAmount" asp-format="{0:0.00}" type="text" inputmode="decimal" class="form-control" readonly="@locked"/><span asp-validation-for="OriginalAmount" class="text-danger"></span><div class="form-text">Original principal borrowed, excluding future interest.</div></div>
+            <div class="col-12 col-md-6 mb-3"><label asp-for="OutstandingAmount" class="form-label">Outstanding principal (RM)</label><input asp-for="OutstandingAmount" asp-format="{0:0.00}" type="text" inputmode="decimal" class="form-control" readonly="@(Model.HasRepayments||(calculated&&!Model.IsExistingLoan))"/><span asp-validation-for="OutstandingAmount" class="text-danger"></span><div id="outstandingHint" class="form-text">@(Model.HasRepayments?"Managed by repayment history; this principal balance is read-only.":calculated&&!Model.IsExistingLoan?"Starts automatically at the original principal for a new loan.":"Enter the principal still owed on your lender's latest statement.")</div></div>
+            <div class="col-12 col-md-6 mb-3"><label asp-for="InterestRate" class="form-label">Annual lending rate (% p.a.)</label><input asp-for="InterestRate" asp-format="{0:0.####}" type="text" inputmode="decimal" class="form-control" readonly="@(locked||(calculated&&floating))"/><span asp-validation-for="InterestRate" class="text-danger"></span><div id="interestRateHint" class="form-text">@(calculated&&floating?"Calculated as reference rate plus spread.":calculated?"The annual rate used for the monthly reducing-balance estimate.":"For information only in manual tracking mode.")</div></div>
+            <div class="col-12 col-md-6 mb-3"><label asp-for="MonthlyRepaymentAmount" class="form-label">@(calculated?"Estimated monthly repayment (RM)":"Monthly repayment amount (RM)")</label><input asp-for="MonthlyRepaymentAmount" asp-format="{0:0.00}" type="text" inputmode="decimal" class="form-control" readonly="@calculated"/><span asp-validation-for="MonthlyRepaymentAmount" class="text-danger"></span><div id="monthlyPaymentHint" class="form-text">@(calculated?"Calculated by the system; the final payment can differ because of rounding.":"Your planned amount. Repayments are recorded manually.")</div></div>
+        </div>
+        <p id="loanQuoteStatus" class="small text-muted" aria-live="polite"></p>
+        <p id="calculatedLoanNote" class="small text-muted" hidden="@(!calculated)">This is a monthly reducing-balance estimate without fees or daily-interest adjustments. Your lender's statement takes priority. Fixed rate does not mean flat interest. Variable rate does not mean a flexi-loan account. Use Compare loan estimates for a legacy flat-rate comparison.</p>
+        <p id="manualDebtNote" class="small text-muted" hidden="@calculated">Manual tracking preserves the entered balance and repayment plan. Interest is not automatically added. Recording a repayment reduces principal by the full recorded amount.</p>
+        <div class="mb-4"><label asp-for="DueDate" class="form-label"></label><input asp-for="DueDate" type="date" min="1000-01-01" class="form-control" disabled="@locked"/>@if(locked){<input type="hidden" name="DueDate" value="@Model.DueDate?.ToString("yyyy-MM-dd")"/>}<span asp-validation-for="DueDate" class="text-danger"></span><div class="form-text">@(calculated?"First or next monthly payment date, after your loan/tracking start date.":"The next payment date in your repayment plan.")</div></div>
+        <div class="mb-4"><label asp-for="Description" class="form-label"></label><textarea asp-for="Description" maxlength="500" rows="3" class="form-control"></textarea><span asp-validation-for="Description" class="text-danger"></span></div>
+        @if(edit){<div class="mb-4"><label asp-for="Status" class="form-label"></label><select asp-for="Status" class="form-select"><option value="Active">Active</option><option value="Inactive">Inactive</option>@if(Model.Status=="Paid"){<option value="Paid">Paid</option>}</select><div class="form-text">A zero outstanding balance is always marked Paid.</div></div>}
+        <div class="d-flex flex-wrap gap-2 justify-content-end"><a asp-action="Index" class="btn btn-outline-secondary">Cancel</a><button type="submit" class="btn btn-primary">@(edit?"Save changes":"Add debt")</button></div>
+    </form>
+    </div></div>
+</div>
+@section Scripts{<script src="~/lib/jquery/dist/jquery.min.js"></script><partial name="_ValidationScriptsPartial"/><script src="~/js/debt-loan-form.js" asp-append-version="true"></script>}

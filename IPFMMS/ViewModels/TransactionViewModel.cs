@@ -1,4 +1,4 @@
-﻿namespace IPFMMS.ViewModels
+namespace IPFMMS.ViewModels
 {
     public class TransactionViewModel
     {
@@ -13,6 +13,10 @@
         public DateTime TransactionDate { get; set; }
 
         public string? Description { get; set; }
+
+        public bool IsSharedExpense { get; set; }
+
+        public bool IsDebtRepayment { get; set; }
 
         public bool IsBillPayment { get; set; }
 

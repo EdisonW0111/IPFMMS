@@ -14,10 +14,15 @@ public sealed class RoutineBillsController(ApplicationDbContext db, RoutineBillS
     private string Owner=>User.FindFirstValue(ClaimTypes.NameIdentifier)??"";
     private static DateTime Today=>DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date;
     [HttpGet]
-    public async Task<IActionResult> Index(int page=1,CancellationToken ct=default)
+    public async Task<IActionResult> Index(int page=1,CancellationToken ct=default,string? search=null,string type="all",string status="all")
     {
         if(Owner=="")return Challenge();
-        return View(await bills.ListAsync(Owner,Today,page,ct));
+        try
+        {
+            var model=await bills.ListAsync(Owner,Today,page,ct,search,type,status);
+            return Request.Headers["X-Requested-With"]=="XMLHttpRequest"?PartialView("_ScheduledBillResults",model):View(model);
+        }
+        catch(InvalidOperationException ex){return BadRequest(ex.Message);}
     }
     private async Task PopulateAsync(CreateRoutineBillViewModel model,CancellationToken ct)
     {

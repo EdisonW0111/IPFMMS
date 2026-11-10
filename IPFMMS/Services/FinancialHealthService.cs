@@ -9,6 +9,7 @@ public sealed class FinancialHealthService(ApplicationDbContext db)
     {
         if (string.IsNullOrWhiteSpace(owner)) throw new ArgumentException("An owner is required.");
         var current = new DateTime(today.Year, today.Month, 1);
+        await new BudgetRolloverService(db, new IdGeneratorService(db)).EnsureMonthAsync(owner, current.AddMonths(-1), ct);
         await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct);
         var users = await db.Users.FromSqlInterpolated($"SELECT * FROM `Users` WHERE `UserId` = {owner} FOR UPDATE")
             .AsNoTracking().ToListAsync(ct);
@@ -59,6 +60,7 @@ public sealed class FinancialHealthService(ApplicationDbContext db)
         var current=new DateTime(today.Year,today.Month,1);
         if(string.IsNullOrWhiteSpace(owner)||month<new DateTime(1000,4,1)||month>current||month.Day!=1||month.TimeOfDay!=TimeSpan.Zero)
             throw new ArgumentException("Choose a valid past or current month.");
+        await new BudgetRolloverService(db,new IdGeneratorService(db)).EnsureMonthAsync(owner,month,ct);
         bool provisional=month==current;
         var until=provisional?today.Date.AddDays(1):month.AddMonths(1);
         var stabilityEnd=provisional?month:month.AddMonths(1);
@@ -71,6 +73,7 @@ public sealed class FinancialHealthService(ApplicationDbContext db)
         var selected=expenses.Where(e=>e.Year==month.Year&&e.Month==month.Month).ToList();
         var savings=await db.SavingsContributions.AsNoTracking().Where(c=>c.SavingsGoal!.UserId==owner&&c.ContributionDate>=month&&c.ContributionDate<until)
             .SumAsync(c=>(decimal?)c.Amount,ct)??0m;
+        savings += await SharedSavingsAllocations.NetAsync(db,owner,month,until,ct);
         var budgets=await db.Budgets.AsNoTracking().Where(b=>b.UserId==owner&&b.BudgetMonth==month)
             .Select(b=>new{b.ExpenseCategoryId,b.BudgetType,b.BudgetAmount,b.BudgetPercentage}).ToListAsync(ct);
         var totalIncome=income?.Amount??0m;

@@ -1,4 +1,4 @@
-﻿@model IPFMMS.ViewModels.AllTransactionsViewModel
+@model IPFMMS.ViewModels.AllTransactionsViewModel
 
 @{
     int currentPage = Model.Filter.Page;
@@ -152,7 +152,15 @@
                                 else
                                 {
                                     <!-- Edit Expense -->
-                                    @if(transaction.IsBillPayment)
+                                    @if(transaction.IsSharedExpense)
+                                    {
+                                        <a asp-controller="SharedFinance" asp-action="PersonalEntry" asp-route-expenseId="@transaction.TransactionId" class="btn btn-sm btn-outline-secondary transaction-action-btn">View shared entry</a>
+                                    }
+                                    else if(transaction.IsDebtRepayment)
+                                    {
+                                        <a asp-controller="Debt" asp-action="Payment" asp-route-expenseId="@transaction.TransactionId" class="btn btn-sm btn-outline-secondary transaction-action-btn">View repayment</a>
+                                    }
+                                    else if(transaction.IsBillPayment)
                                     {
                                         <a asp-controller="RoutineBills" asp-action="History" asp-route-expenseId="@transaction.TransactionId" class="btn btn-sm btn-outline-secondary transaction-action-btn">View payment</a>
                                     }

@@ -12,6 +12,8 @@ public class Notification
     [Required, StringLength(2000)] public string message { get; set; } = "";
     public DateTime createdDateTime { get; set; }
     public bool isRead { get; set; }
+    // Captured at creation; changing preferences preserves previous in-app history.
+    public bool showInApp { get; set; } = true;
     // Delivery state is separate from read/unread state.
     [Required, StringLength(20)] public string emailStatus { get; set; } = "NotRequested";
     public DateTime? emailAttemptedDate { get; set; }

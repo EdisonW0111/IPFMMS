@@ -1,4 +1,4 @@
-﻿using IPFMMS.Data;
+using IPFMMS.Data;
 using IPFMMS.Models;
 using IPFMMS.Services;
 using IPFMMS.ViewModels;
@@ -45,6 +45,18 @@ namespace IPFMMS.Controllers
             _turnstileService = turnstileService;
             _loginAttemptService = loginAttemptService; 
             _passwordResetTokenService = passwordResetTokenService;
+        }
+
+        private async Task<User?> LockUserByIdAsync(string userId)
+        {
+            if (_context.Database.CurrentTransaction == null)
+                throw new InvalidOperationException("An account transaction is required.");
+            var users = await _context.Users
+                .FromSqlInterpolated($"SELECT * FROM Users WHERE UserId = {userId} FOR UPDATE")
+                .AsTracking().ToListAsync();
+            var user = users.SingleOrDefault();
+            if (user != null) await _context.Entry(user).ReloadAsync();
+            return user;
         }
 
         [HttpGet]
@@ -107,6 +119,7 @@ namespace IPFMMS.Controllers
                     .ToListAsync();
 
                 var user = users.FirstOrDefault();
+                if (user != null) await _context.Entry(user).ReloadAsync();
 
                 if (user != null && user.AccountStatus != "Pending")
                 {
@@ -301,13 +314,12 @@ namespace IPFMMS.Controllers
                 return View(model);
             }
 
-            // Lock the OTP record while checking and updating it.
-            // This prevents simultaneous attempts from bypassing the limit.
+            // Lock the account before its OTP. Administrative access changes use
+            // the same order, so a deleted account cannot be activated from a stale read.
             await using var transaction =
                 await _context.Database.BeginTransactionAsync();
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.UserId == model.UserId);
+            var user = await LockUserByIdAsync(model.UserId);
 
             if (user == null || user.AccountStatus != "Pending")
             {
@@ -315,6 +327,7 @@ namespace IPFMMS.Controllers
                 return NotFound();
             }
 
+            model.UserId = user.UserId;
             model.Email = user.Email;
 
             var otpRecords = await _context.EmailOTPs
@@ -329,6 +342,7 @@ namespace IPFMMS.Controllers
                 .ToListAsync();
 
             var otp = otpRecords.FirstOrDefault();
+            if (otp != null) await _context.Entry(otp).ReloadAsync();
 
             if (otp == null)
             {
@@ -426,6 +440,7 @@ namespace IPFMMS.Controllers
                 .ToListAsync();
 
             var user = users.FirstOrDefault();
+            if (user != null) await _context.Entry(user).ReloadAsync();
 
             if (user == null || user.AccountStatus != "Pending")
             {
@@ -433,6 +448,7 @@ namespace IPFMMS.Controllers
                 return NotFound();
             }
 
+            userId = user.UserId;
             DateTime now = DateTime.UtcNow;
 
             var recentOtps = await _context.EmailOTPs
@@ -722,7 +738,7 @@ namespace IPFMMS.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "User")]
+        [Authorize(Roles = "User,Parent,Admin")]
         public async Task<IActionResult> UpdateProfile()
         {
             string? userId =
@@ -749,7 +765,7 @@ namespace IPFMMS.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = "User")]
+        [Authorize(Roles = "User,Parent,Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateProfile(
             UpdateProfileViewModel model)
@@ -760,11 +776,13 @@ namespace IPFMMS.Controllers
             if (string.IsNullOrWhiteSpace(userId))
                 return Challenge();
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.UserId == userId);
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var user = await LockUserByIdAsync(userId);
 
             if (user == null)
                 return NotFound();
+            if (!AccountStatus.CanLogin(user.AccountStatus))
+                return Forbid();
 
             // The email field is displayed only.
             // Never trust a submitted email address.
@@ -780,6 +798,7 @@ namespace IPFMMS.Controllers
                 : model.PhoneNumber.Trim();
 
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             // Refresh the username stored in the authentication cookie.
             var currentAuth = await HttpContext.AuthenticateAsync(
@@ -823,14 +842,14 @@ namespace IPFMMS.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "User")]
+        [Authorize(Roles = "User,Parent,Admin")]
         public IActionResult ChangePassword()
         {
             return View(new ChangePasswordViewModel());
         }
 
         [HttpPost]
-        [Authorize(Roles = "User")]
+        [Authorize(Roles = "User,Parent,Admin")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ChangePassword(
             ChangePasswordViewModel model)
@@ -850,9 +869,10 @@ namespace IPFMMS.Controllers
                 return Challenge();
             }
 
-            // 3. Retrieve user from MySQL.
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.UserId == userId);
+            // 3. Lock and reload the account before checking access and changing
+            // PasswordHash/SecurityVersion, preserving concurrent administrative changes.
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var user = await LockUserByIdAsync(userId);
 
             if (user == null ||
                 !AccountStatus.CanLogin(user.AccountStatus))
@@ -903,6 +923,7 @@ namespace IPFMMS.Controllers
 
             // 7. Save new password to MySQL.
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             // Retrieve the current authentication ticket.
             var currentAuth = await HttpContext.AuthenticateAsync(
@@ -986,6 +1007,7 @@ namespace IPFMMS.Controllers
                 .ToListAsync();
 
             var user = users.FirstOrDefault();
+            if (user != null) await _context.Entry(user).ReloadAsync();
 
             // Don't reveal whether the email is registered.
             if (user == null ||
@@ -1131,12 +1153,13 @@ namespace IPFMMS.Controllers
             await using var transaction =
                 await _context.Database.BeginTransactionAsync();
 
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u =>
-                    u.Email == email &&
-                    u.AccountStatus == AccountStatus.Active);
+            var users = await _context.Users
+                .FromSqlInterpolated($"SELECT * FROM Users WHERE Email = {email} FOR UPDATE")
+                .AsTracking().ToListAsync();
+            var user = users.SingleOrDefault();
+            if (user != null) await _context.Entry(user).ReloadAsync();
 
-            if (user == null)
+            if (user == null || !AccountStatus.CanLogin(user.AccountStatus))
             {
                 await transaction.RollbackAsync();
 
@@ -1161,6 +1184,7 @@ namespace IPFMMS.Controllers
                 .ToListAsync();
 
             var otp = otpRecords.FirstOrDefault();
+            if (otp != null) await _context.Entry(otp).ReloadAsync();
 
             if (otp == null ||
                 otp.ExpiryDateTime <= DateTime.UtcNow ||
@@ -1336,8 +1360,25 @@ namespace IPFMMS.Controllers
                 return View(model);
             }
 
+            // Resolve the token's owner without locking it, then lock the account
+            // first. The locked token below is rechecked before any credential change.
+            var tokenOwner = await _context.PasswordResetTokens.AsNoTracking()
+                .Where(t => t.TokenHash == tokenHash).Select(t => t.UserId).SingleOrDefaultAsync();
+            if (tokenOwner == null)
+            {
+                Response.Cookies.Delete("IPFMMS.PasswordReset", new CookieOptions { Path = "/Account" });
+                TempData["ResetNotice"] = "Your password reset session is invalid or expired.";
+                return RedirectToAction(nameof(ForgotPassword));
+            }
             await using var transaction =
                 await _context.Database.BeginTransactionAsync();
+            var user = await LockUserByIdAsync(tokenOwner);
+            if (user == null || !AccountStatus.CanLogin(user.AccountStatus))
+            {
+                await transaction.RollbackAsync();
+                Response.Cookies.Delete("IPFMMS.PasswordReset", new CookieOptions { Path = "/Account" });
+                return RedirectToAction(nameof(ForgotPassword));
+            }
 
             // Lock the token row so simultaneous submissions
             // cannot consume the same token twice.
@@ -1350,8 +1391,10 @@ namespace IPFMMS.Controllers
                 .ToListAsync();
 
             var tokenRecord = tokenRecords.FirstOrDefault();
+            if (tokenRecord != null) await _context.Entry(tokenRecord).ReloadAsync();
 
             if (tokenRecord == null ||
+                tokenRecord.UserId != tokenOwner ||
                 tokenRecord.IsUsed ||
                 tokenRecord.ExpiryDateTime <= DateTime.UtcNow)
             {
@@ -1363,22 +1406,6 @@ namespace IPFMMS.Controllers
 
                 TempData["ResetNotice"] =
                     "Your password reset session is invalid or expired.";
-
-                return RedirectToAction(nameof(ForgotPassword));
-            }
-
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u =>
-                    u.UserId == tokenRecord.UserId &&
-                    u.AccountStatus == AccountStatus.Active);
-
-            if (user == null)
-            {
-                await transaction.RollbackAsync();
-
-                Response.Cookies.Delete(
-                    "IPFMMS.PasswordReset",
-                    new CookieOptions { Path = "/Account" });
 
                 return RedirectToAction(nameof(ForgotPassword));
             }
@@ -1523,6 +1550,7 @@ namespace IPFMMS.Controllers
                 .ToListAsync();
 
             var user = users.FirstOrDefault();
+            if (user != null) await _context.Entry(user).ReloadAsync();
 
             // Do not reveal account existence or status.
             if (user == null ||

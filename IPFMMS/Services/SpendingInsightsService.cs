@@ -10,6 +10,7 @@ public sealed class SpendingInsightsService(ApplicationDbContext db)
         var current=new DateTime(today.Year,today.Month,1);
         if(string.IsNullOrWhiteSpace(owner))throw new ArgumentException("An owner is required.");
         if(month<new DateTime(1000,2,1)||month>current||month.Day!=1||month.TimeOfDay!=TimeSpan.Zero)throw new ArgumentException("Choose a past or current valid month.");
+        await new BudgetRolloverService(db,new IdGeneratorService(db)).EnsureMonthAsync(owner,month,ct);
         bool isCurrent=month==current;
         var end=isCurrent?today.Date.AddDays(1):month.AddMonths(1);
         var prior=month.AddMonths(-1);

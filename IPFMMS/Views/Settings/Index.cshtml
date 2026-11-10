@@ -1,0 +1,24 @@
+@model IPFMMS.ViewModels.SettingsViewModel
+@{ViewData["Title"]="Settings";Layout="_DashboardLayout";}
+<div class="container-fluid py-4 settings-page">
+<div class="mb-4"><h2 class="fw-bold">Settings</h2><p class="text-muted mb-0">@(User.IsInRole("Admin") ? "Choose your appearance and manage your account." : "Choose your appearance and how you receive notifications.")</p></div>
+@if(TempData["SuccessMessage"] is string success){<div class="alert alert-success" role="status">@success</div>}
+<form asp-controller="Settings" asp-action="Index" method="post">
+<input asp-for="Revision" type="hidden"/><div asp-validation-summary="All" class="text-danger" role="alert"></div>
+<section class="card border-0 shadow-sm settings-section mb-4"><div class="card-body p-4 p-md-5"><h3 class="h5 fw-bold mb-2">Appearance</h3><p class="text-muted small mb-4">Use light or dark mode throughout IPFMMS. You can preview a theme before saving.</p><fieldset><legend class="visually-hidden">Theme</legend><div class="settings-theme-options">
+<label class="settings-theme-choice" for="themeLight"><span class="settings-theme-example settings-theme-example-light" aria-hidden="true"></span><input id="themeLight" asp-for="Theme" type="radio" value="Light" class="form-check-input" data-theme-choice/><span class="settings-theme-name">Light</span></label>
+<label class="settings-theme-choice" for="themeDark"><span class="settings-theme-example settings-theme-example-dark" aria-hidden="true"></span><input id="themeDark" asp-for="Theme" type="radio" value="Dark" class="form-check-input" data-theme-choice/><span class="settings-theme-name">Dark</span></label>
+</div></fieldset><span asp-validation-for="Theme" class="text-danger"></span><p id="themePreviewStatus" class="small text-muted mt-3 mb-0" aria-live="polite">Your saved theme is selected.</p></div></section>
+@if (!User.IsInRole("Admin")) {
+<section class="card border-0 shadow-sm settings-section mb-4"><div class="card-body p-4 p-md-5"><h3 class="h5 fw-bold mb-2">Notifications</h3><p class="text-muted small mb-2">Choose each delivery channel separately.</p><p class="small text-muted mb-2">Changes apply to new alerts. Existing in-app history stays available. Turning email off also stops messages still waiting to be sent.</p>
+<table class="settings-preferences"><thead><tr><th scope="col">Notification</th><th scope="col" class="settings-channel">In-app</th><th scope="col" class="settings-channel">Email</th></tr></thead><tbody>
+<tr><td><span class="settings-preference-title">Bill reminders</span><span class="settings-preference-description">Upcoming, due-today and overdue bills.</span></td><td class="settings-channel"><input asp-for="BillInApp" class="form-check-input" aria-label="Bill reminders in-app"/></td><td class="settings-channel"><input asp-for="BillEmail" class="form-check-input" aria-label="Bill reminder emails"/></td></tr>
+<tr><td><span class="settings-preference-title">Linked-user financial alerts</span><span class="settings-preference-description">Budget and financial health alerts for people who accepted your monitoring request.</span></td><td class="settings-channel"><input asp-for="MonitoringInApp" class="form-check-input" aria-label="Linked-user financial alerts in-app"/></td><td class="settings-channel"><input asp-for="MonitoringEmail" class="form-check-input" aria-label="Linked-user financial alert emails"/></td></tr>
+<tr><td><span class="settings-preference-title">Invitation emails</span><span class="settings-preference-description">Shared finance invitations and monitoring requests. Pending invitations remain available in their respective pages.</span></td><td class="settings-channel"><span class="small text-muted" aria-label="Invitations remain available on their pages">Always available</span></td><td class="settings-channel"><input asp-for="InvitationEmail" class="form-check-input" aria-label="Invitation emails"/></td></tr>
+</tbody></table><p class="small text-muted mb-0 mt-3">Security emails, including verification codes and password resets, are unaffected by these settings.</p></div></section>
+}
+<div class="d-flex justify-content-end mb-4"><button class="btn btn-primary" type="submit">Save preferences</button></div>
+</form>
+<section class="card border-0 shadow-sm settings-section"><div class="card-body p-4 p-md-5"><h3 class="h5 fw-bold">Account</h3><p class="small text-muted">Manage your personal details and password.</p><div class="settings-account-links"><a asp-controller="Account" asp-action="UpdateProfile" class="btn btn-outline-secondary">Edit profile</a><a asp-controller="Account" asp-action="ChangePassword" class="btn btn-outline-secondary">Change password</a></div></div></section>
+</div>
+@section Styles{<link rel="stylesheet" href="~/css/settings.css" asp-append-version="true"/>}

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -31,5 +32,20 @@ namespace IPFMMS.Models
         // field is needed on the contribution in the Chapter 4 design.
         [ForeignKey(nameof(SavingsGoalId))]
         public SavingsGoal? SavingsGoal { get; set; }
+
+        // Chapter 4 attribute names share the existing persisted values. These aliases
+        // add no database columns and keep existing serialization contracts unchanged.
+        [NotMapped, JsonIgnore]
+        public string contributionId { get => ContributionId; set => ContributionId = value; }
+        [NotMapped, JsonIgnore]
+        public string savingsGoalId { get => SavingsGoalId; set => SavingsGoalId = value; }
+        [NotMapped, JsonIgnore]
+        public decimal amount { get => Amount; set => Amount = value; }
+        [NotMapped, JsonIgnore]
+        public DateTime contributionDate { get => ContributionDate; set => ContributionDate = value; }
+        [NotMapped, JsonIgnore]
+        public string contributionMethod { get => ContributionMethod; set => ContributionMethod = value; }
+        [NotMapped, JsonIgnore]
+        public string? description { get => Description; set => Description = value; }
     }
 }
