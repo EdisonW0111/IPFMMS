@@ -59,7 +59,38 @@ public sealed class SharedFinanceController(ApplicationDbContext db,SharedFinanc
         var query=all.Where(t=>t.transactionDate>=date&&t.transactionDate<end);if(type!="all")query=query.Where(t=>t.transactionType==type);model.Count=await query.CountAsync(ct);model.Page=Math.Clamp(page,1,model.Pages);model.Transactions=await query.Include(t=>t.User).Include(t=>t.ExpenseCategory).OrderByDescending(t=>t.transactionDate).ThenByDescending(t=>t.createdDate).ThenBy(t=>t.sharedTransactionId).Skip((model.Page-1)*20).Take(20).ToListAsync(ct);
         // Accepted Owners can see pending/rejected membership state and delivery information.
         model.Members=await db.SharedFinanceMembers.AsNoTracking().Include(m=>m.User).Where(m=>m.sharedFinanceId==id&&(model.IsOwner||m.invitationStatus=="Accepted")).OrderBy(m=>m.memberRole=="Owner"?0:1).ThenBy(m=>m.invitedDate).ToListAsync(ct);
+        model.ExpectedShares = SharedShareCalculator.Calculate(g.financeType == "MonthlyBudget" ? model.BudgetAmount : model.TargetAmount, model.Members);
+        model.ActualShares = await all.Where(t => g.financeType == "SavingsGoal" || (t.transactionDate >= date && t.transactionDate < end))
+            .GroupBy(t => t.userId).Select(g => new { Id = g.Key, Amount = g.Sum(t => t.transactionType == "Withdrawal" ? -t.amount : t.amount) })
+            .ToDictionaryAsync(x => x.Id, x => x.Amount, ct);
         return Ajax?PartialView("_SharedDetailsResults",model):View(model);
+    }
+    [HttpGet]
+    public async Task<IActionResult> Shares(string id, CancellationToken ct = default)
+    {
+        if (Actor == "") return Challenge();
+        var group = await service.Managed(Actor).SingleOrDefaultAsync(g => g.sharedFinanceId == id, ct);
+        if (group == null) return NotFound();
+        var members = await db.SharedFinanceMembers.AsNoTracking().Include(m => m.User).Where(m => m.sharedFinanceId == id && m.invitationStatus == "Accepted").OrderBy(m => m.userId).ToListAsync(ct);
+        return View(new SharedSharesViewModel { Id = id, Revision = group.revision, GroupName = group.sharedFinanceName,
+            Members = members.Select(m => new SharedShareRow { UserId = m.userId, Name = m.User?.FullName ?? m.userId, Percentage = m.sharePercentage }).ToList() });
+    }
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Shares(SharedSharesViewModel model, CancellationToken ct = default)
+    {
+        if (Actor == "") return Challenge();
+        var group = await service.Managed(Actor).SingleOrDefaultAsync(g => g.sharedFinanceId == model.Id, ct);
+        if (group == null) return NotFound();
+        model.GroupName = group.sharedFinanceName;
+        var names = await db.SharedFinanceMembers.AsNoTracking().Include(m => m.User).Where(m => m.sharedFinanceId == model.Id && m.invitationStatus == "Accepted").ToDictionaryAsync(m => m.userId, m => m.User!.FullName, ct);
+        foreach (var row in model.Members) row.Name = names.GetValueOrDefault(row.UserId) ?? row.UserId;
+        if (ModelState.IsValid) try {
+            await service.SetSharesAsync(Actor, model, ct);
+            TempData["SuccessMessage"] = "Expected shares saved. Actual payments and personal finances are unchanged.";
+            return RedirectToAction(nameof(Details), new { id = model.Id });
+        } catch (SharedAccessException) { return NotFound(); }
+        catch (InvalidOperationException ex) { ModelState.AddModelError("", ex.Message); }
+        return View(model);
     }
     [HttpGet]
     public async Task<IActionResult> Invite(string id,CancellationToken ct=default)

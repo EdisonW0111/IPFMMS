@@ -9,6 +9,7 @@ public sealed class NotificationService(ApplicationDbContext db)
     {
         var today=DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date;
         return db.Notifications.AsNoTracking().Where(n => n.userId == owner
+        && db.Users.Any(u => u.UserId == owner && u.AccountStatus == "Active" && (u.Role == "User" || u.Role == "Parent"))
         && (n.routineBillId == null || db.RoutineBills.Any(b => b.billId == n.routineBillId && b.userId == owner && b.status == "Active" && b.dueDate == n.billDueDate
             && b.User!.AccountStatus == AccountStatus.Active && (b.User.Role == "User" || b.User.Role == "Parent")
             && !db.RoutineBillPayments.Any(p => p.billId == b.billId && p.dueDate == b.dueDate)

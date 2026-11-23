@@ -523,7 +523,33 @@ namespace IPFMMS.Controllers
             var schedule = await _context.BudgetSchedules.SingleOrDefaultAsync(s =>
                 s.UserId == userId && s.ExpenseCategoryId == budget.ExpenseCategoryId);
 
-            if (!BudgetRepeatUntil.TryParse(model.RepeatMonthly, model.RepeatUntil,
+            bool seriesEdit = model.EditScope == "series";
+            if (model.EditScope is not ("month" or "series")) return BadRequest();
+            bool sameSeries = schedule != null && budget.BudgetScheduleId == schedule.BudgetScheduleId && budget.RepeatSeriesVersion == schedule.SeriesVersion;
+            if (!seriesEdit)
+            {
+                model.RepeatMonthly = schedule?.IsActive == true;
+                model.RepeatUntil = schedule?.EndMonth?.ToString("yyyy-MM", CultureInfo.InvariantCulture);
+                ModelState.Remove(nameof(model.RepeatMonthly));
+                ModelState.Remove(nameof(model.RepeatUntil));
+            }
+            var future = seriesEdit && budget.BudgetScheduleId != null
+                ? await _context.Budgets.Where(b => b.UserId == userId && b.BudgetMonth > budget.BudgetMonth &&
+                    b.BudgetScheduleId == budget.BudgetScheduleId && b.RepeatSeriesVersion == budget.RepeatSeriesVersion).ToListAsync()
+                : new List<Budget>();
+            if (seriesEdit && budget.BudgetScheduleId != null && !sameSeries)
+                ModelState.AddModelError("", "This historical series is no longer the current category schedule. Edit its months individually.");
+            if (seriesEdit && model.BudgetType == "Percentage" && model.BudgetPercentage.HasValue)
+            {
+                foreach (var item in future)
+                {
+                    var other = await _context.Budgets.Where(b => b.UserId == userId && b.BudgetMonth == item.BudgetMonth &&
+                        b.BudgetId != item.BudgetId && b.BudgetType == "Percentage").SumAsync(b => b.BudgetPercentage ?? 0m);
+                    if (other + model.BudgetPercentage.Value > 100m)
+                        ModelState.AddModelError(nameof(model.BudgetPercentage), $"Total percentage allocation would exceed 100% in {item.BudgetMonth:MMMM yyyy}. Nothing was changed.");
+                }
+            }
+            if (!BudgetRepeatUntil.TryParse(seriesEdit && model.RepeatMonthly, seriesEdit ? model.RepeatUntil : null,
                 budget.BudgetMonth, out var endMonth, out var repeatError))
                 ModelState.AddModelError(nameof(model.RepeatUntil), repeatError!);
             if (!model.RepeatMonthly)
@@ -532,9 +558,9 @@ namespace IPFMMS.Controllers
                 ModelState.Remove(nameof(model.RepeatUntil));
             }
 
-            if (model.RepeatMonthly && !budget.ExpenseCategory.IsActive)
+            if (seriesEdit && model.RepeatMonthly && !budget.ExpenseCategory.IsActive)
                 ModelState.AddModelError(nameof(model.RepeatMonthly), "An inactive category cannot repeat. Turn repetition off to save.");
-            if (model.RepeatMonthly && budget.BudgetMonth.Year >= 9999)
+            if (seriesEdit && model.RepeatMonthly && budget.BudgetMonth.Year >= 9999)
                 ModelState.AddModelError(nameof(model.RepeatMonthly), "This budget month cannot be repeated.");
 
             if (model.BudgetType == "Percentage" && model.BudgetPercentage is decimal percentage)
@@ -545,7 +571,7 @@ namespace IPFMMS.Controllers
                     .SumAsync(b => b.BudgetPercentage ?? 0m);
                 if (monthlyAllocation + percentage > 100m)
                     ModelState.AddModelError(nameof(model.BudgetPercentage), "Total percentage allocation for this month cannot exceed 100%.");
-                if (model.RepeatMonthly)
+                if (seriesEdit && model.RepeatMonthly)
                 {
                     decimal repeatingAllocation = await _context.BudgetSchedules
                         .Where(s => s.UserId == userId && s.IsActive &&
@@ -565,7 +591,7 @@ namespace IPFMMS.Controllers
 
             // Preserve earlier eligible months with the schedule's old settings.
             // This is atomic with editing or turning repetition off.
-            if (schedule?.IsActive == true && schedule.NextBudgetMonth < budget.BudgetMonth)
+            if (seriesEdit && schedule?.IsActive == true && schedule.NextBudgetMonth < budget.BudgetMonth)
             {
                 var historyWarnings = await _rollover.EnsureThroughMonthInTransactionAsync(
                     userId, budget.BudgetMonth.AddMonths(-1), budget.ExpenseCategoryId);
@@ -584,7 +610,14 @@ namespace IPFMMS.Controllers
             budget.BudgetPercentage = model.BudgetPercentage;
             budget.Notes = model.Notes?.Trim();
 
-            if (model.RepeatMonthly)
+            foreach (var item in future)
+            {
+                item.BudgetType = budget.BudgetType;
+                item.BudgetAmount = budget.BudgetAmount;
+                item.BudgetPercentage = budget.BudgetPercentage;
+                item.Notes = budget.Notes;
+            }
+            if (seriesEdit && model.RepeatMonthly)
             {
                 if (schedule == null)
                 {
@@ -609,7 +642,7 @@ namespace IPFMMS.Controllers
                 schedule.NextBudgetMonth = budget.BudgetMonth.AddMonths(1);
                 schedule.IsActive = true;
             }
-            else if (schedule != null)
+            else if (seriesEdit && schedule != null)
             {
                 // Keep the disabled schedule so historical budgets cannot restart it.
                 schedule.IsActive = false;
@@ -617,7 +650,7 @@ namespace IPFMMS.Controllers
 
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
-            TempData["SuccessMessage"] = "Budget updated. Other saved monthly budgets were preserved.";
+            TempData["SuccessMessage"] = seriesEdit ? "Budget and future budgets in this repeating series updated." : "Budget updated for this month only.";
             return RedirectToAction(nameof(Index), new { month = budget.BudgetMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture) });
         }
 

@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace IPFMMS.Controllers;
 [Authorize(Roles="User,Parent")]
 [ResponseCache(NoStore=true,Location=ResponseCacheLocation.None)]
-public sealed class NotificationsController(MonitoringAlertService alerts, NotificationService notifications, NotificationEmailService email, RoutineBillReminderService bills) : Controller
+public sealed class NotificationsController(MonitoringAlertService alerts, NotificationService notifications, NotificationEmailService email, RoutineBillReminderService bills, PersonalNotificationService personal) : Controller
 {
     private string Owner => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "";
     private static DateTime Today => DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date;
@@ -15,9 +15,10 @@ public sealed class NotificationsController(MonitoringAlertService alerts, Notif
     public async Task<IActionResult> Index(string type="all", string read="all", int page=1, CancellationToken ct=default)
     {
         if (Owner == "") return Challenge();
-        await bills.RefreshAsync(Owner,Today,ct);
-        await alerts.RefreshAsync(Owner, Today, ct);
-        if (type != "all" && type != "BudgetOverspending" && type != "LowFinancialHealth" && type != "BillUpcoming" && type != "BillDueToday" && type != "BillOverdue") type="all";
+        await bills.RefreshAsync(Owner,Today,ct, deliverEmail: false);
+        await personal.RefreshAsync(Owner,Today,ct);
+        await alerts.RefreshAsync(Owner, Today, ct, deliverEmail: false);
+        if (!PersonalNotificationService.Types.Contains(type) && type != "all" && type != "BudgetOverspending" && type != "LowFinancialHealth" && type != "BillUpcoming" && type != "BillDueToday" && type != "BillOverdue") type="all";
         if (read != "all" && read != "unread" && read != "read") read="all";
         var query=notifications.Visible(Owner);
         if (type != "all") query=query.Where(n=>n.notificationType==type);
@@ -32,8 +33,9 @@ public sealed class NotificationsController(MonitoringAlertService alerts, Notif
     public async Task<IActionResult> UnreadCount(CancellationToken ct=default)
     {
         if (Owner == "") return Challenge();
-        await bills.RefreshAsync(Owner,Today,ct);
-        await alerts.RefreshAsync(Owner,Today,ct);
+        await bills.RefreshAsync(Owner,Today,ct, deliverEmail: false);
+        await personal.RefreshAsync(Owner,Today,ct);
+        await alerts.RefreshAsync(Owner,Today,ct, deliverEmail: false);
         return Json(new {count=await notifications.UnreadAsync(Owner,ct)});
     }
     [HttpPost,ValidateAntiForgeryToken]

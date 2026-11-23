@@ -51,6 +51,15 @@
         border-color: var(--ipfmms-border) !important;
     }
     html[data-bs-theme="dark"] :is(.dashboard-header h1,.profile-button,.profile-name,.profile-menu-title,.profile-menu-item,.mobile-menu-button,.navbar-brand,.navbar-light .nav-link,.navbar-light .navbar-brand,.text-dark,.text-body) { color: var(--ipfmms-text) !important; }
+    html[data-bs-theme="dark"] .profile-button {
+        background: var(--ipfmms-surface);
+        border-color: var(--ipfmms-border);
+    }
+    html[data-bs-theme="dark"] .profile-button:is(:hover, :focus-visible, [aria-expanded="true"]) {
+        background: var(--ipfmms-surface-muted);
+        border-color: var(--ipfmms-accent);
+    }
+    html[data-bs-theme="dark"] .profile-chevron { color: var(--ipfmms-muted); }
     html[data-bs-theme="dark"] .dashboard-sidebar :is(.sidebar-link,.sidebar-toggle) { color: #c5d5e5; }
     html[data-bs-theme="dark"] .dashboard-sidebar :is(.sidebar-link.active,.sidebar-link:hover,.sidebar-toggle:hover) { color: #fff; background-color: var(--sidebar-active); }
     html[data-bs-theme="dark"] :is(.profile-menu-header,.profile-menu-divider,.profile-card-heading,.password-card-heading,.border,.border-top,.border-bottom,.border-start,.border-end,hr) { border-color: var(--ipfmms-border) !important; }

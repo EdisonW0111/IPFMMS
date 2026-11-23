@@ -30,6 +30,8 @@ public sealed class SharedFinanceIndexViewModel
 }
 public sealed class SharedFinanceDetailsViewModel
 {
+    public Dictionary<string, decimal> ExpectedShares { get; set; } = new();
+    public Dictionary<string, decimal> ActualShares { get; set; } = new();
     public SharedFinance Finance { get; set; } = new();
     public string Owner { get; set; } = "";
     public bool IsOwner { get; set; }
@@ -85,4 +87,18 @@ public sealed class PromoteSharedOwnerViewModel
     [Range(1,int.MaxValue)] public int InvitationVersion { get; set; }
     public string MemberName { get; set; } = "";
     public string GroupName { get; set; } = "";
+}
+
+public sealed class SharedSharesViewModel
+{
+    [Required, StringLength(20)] public string Id { get; set; } = "";
+    public int Revision { get; set; }
+    public string GroupName { get; set; } = "";
+    public List<SharedShareRow> Members { get; set; } = new();
+}
+public sealed class SharedShareRow
+{
+    [Required, StringLength(20)] public string UserId { get; set; } = "";
+    public string Name { get; set; } = "";
+    [Required, Range(typeof(decimal), "0", "100")] public decimal? Percentage { get; set; }
 }

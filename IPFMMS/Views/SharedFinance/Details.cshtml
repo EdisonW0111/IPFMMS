@@ -52,9 +52,12 @@
         <partial name="_SharedDetailsResults" model="Model" />
     </div></section>
     <section class="card border-0 shadow-sm"><div class="card-body p-4">
-        <h3 class="h5 fw-bold">Members</h3>
+        <div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h3 class="h5 fw-bold">Members and expected shares</h3>
+        @if (Model.IsOwner && finance.status == "Active") { <a asp-action="Shares" asp-route-id="@finance.sharedFinanceId" class="btn btn-outline-primary btn-sm">Set member shares</a> }</div>
+        <p class="small text-muted">Expected shares apply to @(budget ? Model.Month + " budget" : "the savings target"). Actual @(budget ? "spending" : "net savings") is recorded separately. No automatic charges are made.</p>
+        @if (Model.ExpectedShares.Count == 0) { <p class="small text-muted">Shares are not set. An Owner can set a plan totalling 100% for accepted members.</p> }
         <p class="small text-muted">Only accepted members can view shared records. Pending users must accept their invitation themselves. Owners can promote accepted Members to Owner so they can manage the group together. Each person must release their own savings allocation before leaving or being removed.</p>
-        <div class="table-responsive"><table class="table align-middle" style="min-width:760px"><thead class="table-light"><tr><th>Name</th><th>Role</th><th>Membership</th><th>Joined</th>@if (Model.IsOwner) { <th>Actions</th> }</tr></thead><tbody>
+        <div class="table-responsive"><table class="table align-middle" style="min-width:760px"><thead class="table-light"><tr><th>Name</th><th>Role</th><th>Membership</th><th>Expected share</th><th>@(budget ? "Actual spending" : "Actual net savings") (RM)</th><th>Joined</th>@if (Model.IsOwner) { <th>Actions</th> }</tr></thead><tbody>
         @foreach (var member in Model.Members) {
             var memberIsOwner = string.Equals(member.memberRole, "Owner", StringComparison.OrdinalIgnoreCase);
             var other = !string.Equals(member.userId, Model.Owner, StringComparison.OrdinalIgnoreCase);
@@ -65,6 +68,8 @@
                 <td><span class="badge @(member.invitationStatus == "Accepted" ? "bg-success" : member.invitationStatus == "Pending" ? "bg-warning text-dark" : "bg-secondary")">@member.invitationStatus</span>
                     @if (Model.IsOwner && member.invitationStatus == "Pending") { <div class="small text-muted mt-1">Email: @(member.emailStatus switch { "Sent" => "Sent", "Failed" => "Delivery failed", "Sending" => "Sending", "Suppressed" => "Not sent — invitation unavailable", "Disabled" => "Off in recipient notification settings", _ => "Queued" })</div> }
                 </td>
+                <td>@if (Model.ExpectedShares.TryGetValue(member.userId, out var expected)) { <span>@member.sharePercentage?.ToString("0.##")% · RM @expected.ToString("N2")</span> } else { <span>—</span> }</td>
+                <td>@(member.invitationStatus == "Accepted" ? Model.ActualShares.GetValueOrDefault(member.userId).ToString("N2") : "—")</td>
                 <td>@(member.joinedDate?.AddHours(8).ToString("dd MMM yyyy") ?? "—")</td>
                 @if (Model.IsOwner) {
                     <td><div class="d-flex flex-wrap gap-2">

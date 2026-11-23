@@ -180,6 +180,9 @@ namespace IPFMMS.Controllers
             model.TargetAmount = goal.TargetAmount;
             model.TotalSaved = totalSaved;
 
+            var available = await AvailableFundsService.BalanceAsync(_context, userId, DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date);
+            if (model.Amount > available)
+                ModelState.AddModelError(nameof(model.Amount), $"Contribution exceeds available funds of RM {Math.Max(0m, available):N2} after expenses and savings allocations.");
             if (!model.CanContribute)
                 ModelState.AddModelError(string.Empty, "This goal is completed or inactive and cannot receive contributions.");
             else if (model.Amount!.Value > model.Remaining)
@@ -441,6 +444,9 @@ namespace IPFMMS.Controllers
                     ModelState.AddModelError(field, error.ErrorMessage!);
             if (row.SavingsGoal!.Status is not ("Active" or "Completed"))
                 ModelState.AddModelError(string.Empty, "This goal is inactive and its contributions cannot be changed.");
+            var available = await AvailableFundsService.BalanceAsync(_context, userId, DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date, row.ContributionId);
+            if (model.Amount > row.Amount && model.Amount > available)
+                ModelState.AddModelError(nameof(model.Amount), $"Contribution exceeds available funds of RM {Math.Max(0m, available):N2} after expenses and savings allocations.");
             if (model.Amount > model.MaximumAmount)
                 ModelState.AddModelError(nameof(model.Amount), $"The amount cannot exceed RM{model.MaximumAmount:N2} after other contributions.");
             if (!ModelState.IsValid)

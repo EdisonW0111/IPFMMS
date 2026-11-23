@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using IPFMMS.Data;
 using IPFMMS.Models;
 using Microsoft.EntityFrameworkCore;
@@ -105,6 +107,7 @@ public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorSe
         var accounts = await LockUsers(pair.parentId, pair.userId, ct);
         var link = await db.ParentStudentLinks.SingleOrDefaultAsync(l => l.linkId == id, ct);
         if (link == null) return false;
+        await db.Entry(link).ReloadAsync(ct);
         if (link.requestVersion != version) throw new InvalidOperationException("This request has changed. Refresh the page before responding.");
         if (action == "Accept" || action == "Reject")
         {
@@ -125,6 +128,29 @@ public sealed class MonitoringLinkService(ApplicationDbContext db, IdGeneratorSe
         {
             if (link.linkStatus != "Active") throw new InvalidOperationException("This relationship is no longer active.");
             link.linkStatus = "Inactive"; link.acceptedDate = null;
+            var recipientId = actor == link.parentId ? link.userId : link.parentId;
+            var recipient = accounts.SingleOrDefault(u => u.UserId == recipientId);
+            if (recipient != null && Eligible(recipient))
+            {
+                var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+                    $"monitoring-disconnected|{link.linkId}|{link.requestVersion}|{recipientId}")));
+                if (!await db.Notifications.AnyAsync(n => n.eventKey == key, ct))
+                {
+                    var preferences = await db.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == recipientId, ct) ?? new UserPreference();
+                    var actorName = accounts.Single(u => u.UserId == actor).FullName;
+                    // A relationship update is retained after consent ends. Do not attach
+                    // financial-summary metadata, whose visibility requires an active link.
+                    db.Notifications.Add(new Notification
+                    {
+                        notificationId = await ids.GenerateIdAsync("NTF"), userId = recipientId,
+                        notificationType = "MonitoringDisconnected", title = "Parental monitoring disconnected",
+                        message = $"{actorName} disconnected the parental-monitoring relationship with you. Monitoring access for this relationship has ended. A new request must be accepted before monitoring can resume.",
+                        createdDateTime = DateTime.UtcNow, eventKey = key, requestVersion = link.requestVersion,
+                        showInApp = preferences.MonitoringDisconnectInApp,
+                        emailStatus = preferences.MonitoringDisconnectEmail ? "Pending" : "Disabled"
+                    });
+                }
+            }
         }
         else return false;
         await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return true;

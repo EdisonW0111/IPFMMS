@@ -9,10 +9,41 @@ public sealed class NotificationEmailService(ApplicationDbContext db, Notificati
     {
         "BillUpcoming" or "BillDueToday" or "BillOverdue" => preferences.BillEmail,
         "BudgetOverspending" or "LowFinancialHealth" => preferences.MonitoringEmail,
+        "PersonalBudgetOverspending" or "PersonalLowHealth" or "DebtReminder" or "AutomaticSavings" => preferences.FinancialEmail,
+        "MonitoringDisconnected" => preferences.MonitoringDisconnectEmail,
+        "MonitoringInvitation" or "SharedInvitation" => false,
         _ => true
     };
     private async Task<UserPreference> Preferences(string owner, CancellationToken ct) =>
         await db.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == owner, ct) ?? new UserPreference();
+
+    private async Task<bool> EventStillCurrentAsync(Notification notification, CancellationToken ct)
+    {
+        // Read after the account lock: repayments and automatic savings use the same lock.
+        // Historical in-app items remain available, but resolved reminders must not be mailed.
+        var today = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8)).Date;
+        if (notification.notificationType == "DebtReminder")
+        {
+            var debts = await db.Debts.AsNoTracking().Where(d => d.userId == notification.userId &&
+                d.status == "Active" && d.outstandingAmount > 0m && d.dueDate <= today.AddDays(7))
+                .Select(d => new { d.debtId, d.dueDate }).ToListAsync(ct);
+            return debts.Any(d => PersonalNotificationService.EventKey(notification.userId, "DebtReminder",
+                $"{d.debtId}|{d.dueDate:yyyy-MM-dd}|{(d.dueDate < today ? "overdue" : d.dueDate == today ? "due today" : "upcoming")}") == notification.eventKey);
+        }
+        if (notification.notificationType == "AutomaticSavings")
+        {
+            var source = notification.sourceMonth ?? notification.createdDateTime.AddHours(8);
+            var month = new DateTime(source.Year, source.Month, 1);
+            var end = month.AddMonths(1);
+            var attempts = await db.SavingsAutomaticAttempts.AsNoTracking().Where(a =>
+                a.SavingsGoal!.UserId == notification.userId && a.SavingsGoal.Status != "Deleted" &&
+                a.DueDate >= month && a.DueDate < end)
+                .Select(a => new { a.SavingsGoalId, a.DueDate, a.Status }).ToListAsync(ct);
+            return attempts.Any(a => PersonalNotificationService.EventKey(notification.userId, "AutomaticSavings",
+                $"{a.SavingsGoalId}|{a.DueDate:yyyy-MM-dd}|{a.Status}") == notification.eventKey);
+        }
+        return true;
+    }
 
     public async Task DeliverPendingAsync(string owner, CancellationToken ct = default)
     {
@@ -40,6 +71,12 @@ public sealed class NotificationEmailService(ApplicationDbContext db, Notificati
                 .AsNoTracking().ToListAsync(deliveryCt);
             var notification = await notifications.Eligible(owner).SingleOrDefaultAsync(n => n.notificationId == id && n.emailStatus == "Sending", deliveryCt);
             if (notification == null)
+            {
+                await db.Notifications.Where(n => n.notificationId == id && n.userId == owner && n.emailStatus == "Sending")
+                    .ExecuteUpdateAsync(s => s.SetProperty(n => n.emailStatus, "Suppressed"), deliveryCt);
+                await tx.CommitAsync(deliveryCt); continue;
+            }
+            if (!await EventStillCurrentAsync(notification, deliveryCt))
             {
                 await db.Notifications.Where(n => n.notificationId == id && n.userId == owner && n.emailStatus == "Sending")
                     .ExecuteUpdateAsync(s => s.SetProperty(n => n.emailStatus, "Suppressed"), deliveryCt);

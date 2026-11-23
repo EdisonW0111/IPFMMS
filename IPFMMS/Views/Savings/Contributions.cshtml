@@ -24,11 +24,11 @@
     @if (Model.AutomaticAttempts.Count > 0)
     {
         <details class="mb-4"><summary>Recent automatic saving attempts</summary>
-            <p class="text-muted small">Skipped attempts are not retried. Extra savings credit carries forward. Missed dates while the app was offline are skipped.</p>
+            <p class="text-muted small">Insufficient funds are retried within the scheduled month, up to the goal target date. This month’s missed date can catch up when the app resumes. Older missed months remain skipped. Extra savings credit carries forward.</p>
             <div class="table-responsive"><table class="table"><thead><tr><th>Due date</th><th>Status</th><th>Extra credit used</th><th>Saved</th></tr></thead><tbody>
             @foreach (var attempt in Model.AutomaticAttempts)
             {
-                <tr><td>@attempt.DueDate.ToString("dd MMM yyyy")</td><td>@(attempt.Status switch { "InsufficientFunds" => "Skipped: insufficient funds", "CoveredByExtra" => "Covered by extra savings", "MissedOffline" => "Skipped: app was offline", "Saved" => "Saved automatically", _ => "Not processed" })</td><td>RM @attempt.CreditApplied.ToString("N2")</td><td>RM @attempt.Amount.ToString("N2")</td></tr>
+                <tr><td>@attempt.DueDate.ToString("dd MMM yyyy")</td><td>@(attempt.Status switch { "InsufficientFunds" => "Waiting for available funds", "CoveredByExtra" => "Covered by extra savings", "MissedOffline" => "Skipped: app was offline", "Saved" => "Saved automatically", _ => "Not processed" })</td><td>RM @attempt.CreditApplied.ToString("N2")</td><td>RM @attempt.Amount.ToString("N2")</td></tr>
             }
             </tbody></table></div>
         </details>

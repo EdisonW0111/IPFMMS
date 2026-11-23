@@ -21,6 +21,10 @@
         const reference = document.getElementById('floatingRateFields');
         reference.hidden = !floating;
         reference.disabled = !floating;
+        field('LoanTermMonths').required = calculated;
+        field('LoanStartDate').required = calculated;
+        field('ReferenceRate').required = floating;
+        field('RateSpread').required = floating;
         field('OutstandingAmount').readOnly = hasRepayments || (calculated && !existing);
         field('MonthlyRepaymentAmount').readOnly = calculated;
         field('InterestRate').readOnly = floating;

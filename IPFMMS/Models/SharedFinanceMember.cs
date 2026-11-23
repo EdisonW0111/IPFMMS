@@ -9,6 +9,7 @@ public class SharedFinanceMember
     [Required,StringLength(20)] public string memberRole { get; set; } = "Member";
     [Required,StringLength(20)] public string invitationStatus { get; set; } = "Pending";
     public DateTime invitedDate { get; set; } = DateTime.UtcNow;
+    [Column(TypeName = "decimal(5,2)")] public decimal? sharePercentage { get; set; }
     public DateTime? joinedDate { get; set; }
     public int invitationVersion { get; set; } = 1;
     [StringLength(20)] public string emailStatus { get; set; } = "Pending";

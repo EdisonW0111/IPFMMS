@@ -5,8 +5,8 @@ public sealed class AutomaticSavingsWorker(IServiceScopeFactory scopes, IConfigu
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Explicit opt-in: apply the migration before enabling this worker.
-        if (!config.GetValue<bool>("AutomaticSavings:Enabled")) return;
+        // An explicit false setting pauses automatic processing.
+        if (!config.GetValue<bool>("AutomaticSavings:Enabled", true)) return;
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(5));
         do
         {

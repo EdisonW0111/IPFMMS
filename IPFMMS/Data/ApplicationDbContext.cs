@@ -57,6 +57,10 @@ namespace IPFMMS.Data
             modelBuilder.Entity<UserPreference>(e =>
             {
                 e.ToTable("UserPreferences");
+                e.Property(p => p.MonitoringDisconnectInApp).HasDefaultValue(true);
+                e.Property(p => p.MonitoringDisconnectEmail).HasDefaultValue(true);
+                e.Property(p => p.FinancialInApp).HasDefaultValue(true);
+                e.Property(p => p.FinancialEmail).HasDefaultValue(false);
                 e.HasKey(p => p.UserId);
                 e.Property(p => p.UserId).ValueGeneratedNever();
                 e.Property(p => p.Theme).HasDefaultValue("Light");

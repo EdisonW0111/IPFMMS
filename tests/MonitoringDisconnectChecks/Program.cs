@@ -1,0 +1,71 @@
+using IPFMMS.Data;
+using IPFMMS.Models;
+using IPFMMS.Services;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+if(Environment.GetEnvironmentVariable("IPFMMS_DISCONNECT_TESTS")!="1")throw new Exception("Set IPFMMS_DISCONNECT_TESTS=1; only disposable localhost:33317/feedback_disconnect_checks is used.");
+var options=new DbContextOptionsBuilder<ApplicationDbContext>().UseMySql("Server=127.0.0.1;Port=33317;Database=feedback_disconnect_checks;User=root",new MySqlServerVersion(new Version(8,0,46))).Options;
+using var db=new ApplicationDbContext(options);await db.Database.MigrateAsync();
+int count=0;void Check(bool ok,string name){if(!ok)throw new Exception("FAIL: "+name);Console.WriteLine("PASS: "+name);count++;}
+async Task Reject(Func<Task> action,string name){try{await action();}catch(InvalidOperationException){Check(true,name);return;}throw new Exception("FAIL: "+name);}
+var a="DP"+Guid.NewGuid().ToString("N")[..8];var b="DS"+Guid.NewGuid().ToString("N")[..8];var c="DX"+Guid.NewGuid().ToString("N")[..8];
+foreach(var accountId in new[]{a,b,c})db.Users.Add(new(){UserId=accountId,FullName=accountId,Email=accountId+"@example.invalid",PasswordHash="test-only",Role="User",AccountStatus="Active"});await db.SaveChangesAsync();
+var ids=new IdGeneratorService(db);var fake=new FakeRequestMail();MonitoringLinkService Service(ApplicationDbContext context)=>new(context,new(context),fake,NullLogger<MonitoringLinkService>.Instance);
+var links=Service(db);var notifications=new NotificationService(db);
+var id=await ids.GenerateIdAsync("PSL");db.ParentStudentLinks.Add(new(){linkId=id,parentId=a,userId=b,linkStatus="Active",acceptedDate=DateTime.UtcNow,requestVersion=1});await db.SaveChangesAsync();
+db.UserPreferences.Add(new(){UserId=b,MonitoringDisconnectInApp=true,MonitoringDisconnectEmail=false,MonitoringInApp=false,MonitoringEmail=false,FinancialInApp=false,FinancialEmail=false});
+db.Notifications.Add(new(){notificationId=await ids.GenerateIdAsync("NTF"),userId=a,relatedUserId=b,linkId=id,requestVersion=1,notificationType="BudgetOverspending",title="Old financial alert",message="Consent protected",eventKey=Guid.NewGuid().ToString("N"),createdDateTime=DateTime.UtcNow});await db.SaveChangesAsync();
+Check(await links.TransitionAsync(a,id,1,"Disconnect"),"monitoring requester can disconnect");db.ChangeTracker.Clear();
+var alert=await notifications.Visible(b).SingleAsync(n=>n.notificationType=="MonitoringDisconnected");
+Check(alert.message.Contains(a)&&alert.message.Contains("Monitoring access"),"other person receives named disconnection message");
+Check(!alert.isRead&&alert.showInApp&&alert.emailStatus=="Disabled","relationship update is unread and in-app only");
+Check(alert.linkId==null&&alert.relatedUserId==null,"disconnect alert carries no financial access metadata");
+Check(!await notifications.Visible(a).AnyAsync(n=>n.notificationType=="MonitoringDisconnected"),"initiator receives no duplicate self-notification");
+Check(!await notifications.Visible(c).AnyAsync(),"unrelated users receive no notification");
+Check(!await links.CanMonitorAsync(a,b),"disconnect revokes financial monitoring access");
+Check(!await notifications.Visible(a).AnyAsync(n=>n.notificationType=="BudgetOverspending"),"old financial alerts stay hidden after disconnection");
+await Reject(()=>links.TransitionAsync(a,id,1,"Disconnect"),"repeated disconnect is rejected");
+Check(await db.Notifications.CountAsync(n=>n.userId==b&&n.notificationType=="MonitoringDisconnected")==1,"duplicate action creates exactly one notification");
+Check(!await notifications.SetReadAsync(c,alert.notificationId,true),"outsider cannot mark another account's notification read");
+Check(await notifications.SetReadAsync(b,alert.notificationId,true),"recipient can mark disconnection read");
+await links.DeleteFromListAsync(b,id,1);db.ChangeTracker.Clear();Check(await notifications.Visible(b).AnyAsync(n=>n.notificationId==alert.notificationId),"notification remains after relationship hidden from list");
+var link=await db.ParentStudentLinks.FindAsync(id);link!.linkStatus="Pending";link.requestVersion=2;link.studentHiddenDate=null;link.parentHiddenDate=null;await db.SaveChangesAsync();
+await links.TransitionAsync(b,id,2,"Accept");Check(await links.TransitionAsync(b,id,2,"Disconnect"),"monitored user can disconnect");db.ChangeTracker.Clear();
+Check(await notifications.Visible(a).AnyAsync(n=>n.notificationType=="MonitoringDisconnected"&&n.message.Contains(b)),"requester notified when monitored user disconnects");
+Check(await db.Notifications.CountAsync(n=>n.notificationType=="MonitoringDisconnected"&&(n.userId==a||n.userId==b))==2,"fresh accepted version gets separate notification");
+link=await db.ParentStudentLinks.FindAsync(id);link!.linkStatus="Active";link.acceptedDate=DateTime.UtcNow;link.requestVersion=3;await db.SaveChangesAsync();
+Check(!await links.TransitionAsync(c,id,3,"Disconnect"),"outsider cannot disconnect relationship");
+await Reject(()=>links.TransitionAsync(a,id,2,"Disconnect"),"stale request version cannot disconnect new relationship");db.ChangeTracker.Clear();Check((await db.ParentStudentLinks.FindAsync(id))!.linkStatus=="Active","stale action preserves active relationship");
+using var first=new ApplicationDbContext(options);using var second=new ApplicationDbContext(options);
+await first.ParentStudentLinks.FindAsync(id);await second.ParentStudentLinks.FindAsync(id);
+await Service(first).TransitionAsync(a,id,3,"Disconnect");await Reject(()=>Service(second).TransitionAsync(b,id,3,"Disconnect"),"cached stale active link cannot disconnect twice");db.ChangeTracker.Clear();
+Check(await db.Notifications.CountAsync(n=>n.notificationType=="MonitoringDisconnected"&&n.requestVersion==3&&(n.userId==a||n.userId==b))==1,"serialized disconnect creates only one notification");
+link=await db.ParentStudentLinks.FindAsync(id);link!.linkStatus="Pending";link.requestVersion=4;await db.SaveChangesAsync();await links.TransitionAsync(a,id,4,"Cancel");db.ChangeTracker.Clear();Check(!await db.Notifications.AnyAsync(n=>n.notificationType=="MonitoringDisconnected"&&n.requestVersion==4&&n.userId==b),"cancelling pending request does not create disconnect alert");
+
+var preferences=new UserPreferenceService(db);
+await preferences.SaveAsync(c,new IPFMMS.ViewModels.SettingsViewModel{Revision=0,MonitoringDisconnectInApp=false,MonitoringDisconnectEmail=true});db.ChangeTracker.Clear();
+var saved=await preferences.GetAsync(c);Check(!saved.MonitoringDisconnectInApp&&saved.MonitoringDisconnectEmail,"independent disconnect settings persist");
+var defaults=await preferences.GetAsync(a);Check(defaults.MonitoringDisconnectInApp&&defaults.MonitoringDisconnectEmail,"disconnect channels default enabled");
+var mail=new FakeAlertMail();var emailService=new NotificationEmailService(db,notifications,mail,NullLogger<NotificationEmailService>.Instance);
+var emailLink=await ids.GenerateIdAsync("PSL");db.ParentStudentLinks.Add(new(){linkId=emailLink,parentId=a,userId=c,linkStatus="Active",acceptedDate=DateTime.UtcNow,requestVersion=1});await db.SaveChangesAsync();
+await links.TransitionAsync(a,emailLink,1,"Disconnect");db.ChangeTracker.Clear();
+var emailAlert=await notifications.Eligible(c).SingleAsync(n=>n.notificationType=="MonitoringDisconnected");
+Check(!emailAlert.showInApp&&emailAlert.emailStatus=="Pending","email-only preference queues message without in-app item");Check(!await notifications.Visible(c).AnyAsync(),"in-app opt-out hides new disconnection notification");
+await emailService.DeliverPendingAsync(c);db.ChangeTracker.Clear();Check(mail.Sent==1&&(await db.Notifications.FindAsync(emailAlert.notificationId))!.emailStatus=="Sent","queued disconnection email is delivered and recorded");
+await emailService.DeliverPendingAsync(c);Check(mail.Sent==1,"delivered email is not sent twice");
+link=await db.ParentStudentLinks.FindAsync(emailLink);link!.requestVersion=2;link.linkStatus="Active";link.acceptedDate=DateTime.UtcNow;await db.SaveChangesAsync();await links.TransitionAsync(a,emailLink,2,"Disconnect");
+await preferences.SaveAsync(c,new IPFMMS.ViewModels.SettingsViewModel{Revision=1,MonitoringDisconnectInApp=true,MonitoringDisconnectEmail=false});db.ChangeTracker.Clear();
+Check(await db.Notifications.Where(n=>n.userId==c&&n.requestVersion==2).AllAsync(n=>n.emailStatus=="Disabled"),"email opt-out cancels waiting disconnect email");await emailService.DeliverPendingAsync(c);Check(mail.Sent==1,"cancelled queued email is not delivered");
+link=await db.ParentStudentLinks.FindAsync(emailLink);link!.requestVersion=3;link.linkStatus="Active";link.acceptedDate=DateTime.UtcNow;await db.SaveChangesAsync();await links.TransitionAsync(a,emailLink,3,"Disconnect");db.ChangeTracker.Clear();
+var inApp=await notifications.Visible(c).SingleAsync(n=>n.notificationType=="MonitoringDisconnected"&&n.requestVersion==3);Check(inApp.emailStatus=="Disabled","in-app-only preference creates no email queue");
+await preferences.SaveAsync(c,new IPFMMS.ViewModels.SettingsViewModel{Revision=2,MonitoringDisconnectInApp=true,MonitoringDisconnectEmail=true});db.ChangeTracker.Clear();Check((await db.Notifications.FindAsync(inApp.notificationId))!.emailStatus=="Disabled","re-enabling email does not release old backlog");
+link=await db.ParentStudentLinks.FindAsync(emailLink);link!.requestVersion=4;link.linkStatus="Active";link.acceptedDate=DateTime.UtcNow;await db.SaveChangesAsync();await links.TransitionAsync(a,emailLink,4,"Disconnect");db.ChangeTracker.Clear();
+var retry=await notifications.Visible(c).SingleAsync(n=>n.notificationType=="MonitoringDisconnected"&&n.requestVersion==4);mail.FailNext=true;await emailService.DeliverPendingAsync(c);db.ChangeTracker.Clear();
+Check((await db.Notifications.FindAsync(retry.notificationId))!.emailStatus=="Failed","SMTP failure keeps the notification and records delivery failure");
+Check(!await emailService.QueueRetryAsync(c,retry.notificationId),"email retry respects cooldown");await db.Notifications.Where(n=>n.notificationId==retry.notificationId).ExecuteUpdateAsync(s=>s.SetProperty(n=>n.emailAttemptedDate,DateTime.UtcNow.AddMinutes(-2)));
+Check(await emailService.QueueRetryAsync(c,retry.notificationId),"failed disconnection email can be retried");db.ChangeTracker.Clear();Check((await db.Notifications.FindAsync(retry.notificationId))!.emailStatus=="Sent","email retry records successful delivery");
+Check(fake.Sent==0,"disconnect does not use invitation email sender");Check(!db.Database.HasPendingModelChanges(),"migration snapshot matches disconnection preferences");
+Console.WriteLine($"RESULT: {count} disconnect checks passed");
+class FakeRequestMail:IParentLinkEmailSender{public int Sent;public Task SendRequestAsync(string email,string name){Sent++;return Task.CompletedTask;}}
+
+class FakeAlertMail:IAlertEmailSender{public int Sent;public bool FailNext;public Task SendAsync(string email,string title,string message){Sent++;if(FailNext){FailNext=false;throw new InvalidOperationException("Simulated SMTP failure");}return Task.CompletedTask;}}

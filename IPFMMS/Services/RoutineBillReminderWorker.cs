@@ -5,7 +5,7 @@ public sealed class RoutineBillReminderWorker(IServiceScopeFactory scopes,IConfi
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if(!config.GetValue<bool>("RoutineBills:RemindersEnabled"))return;
+        if(!config.GetValue<bool>("RoutineBills:RemindersEnabled", true))return;
         using var timer=new PeriodicTimer(TimeSpan.FromMinutes(5));
         do
         {

@@ -19,8 +19,10 @@ public sealed class SettingsController(UserPreferenceService preferences) : Cont
         var saved = await preferences.GetAsync(Owner, ct);
         return View(new SettingsViewModel {
             Theme = saved.Theme, Revision = saved.Revision,
+            FinancialInApp = saved.FinancialInApp, FinancialEmail = saved.FinancialEmail,
             BillInApp = saved.BillInApp, BillEmail = saved.BillEmail,
             MonitoringInApp = saved.MonitoringInApp, MonitoringEmail = saved.MonitoringEmail,
+            MonitoringDisconnectInApp = saved.MonitoringDisconnectInApp, MonitoringDisconnectEmail = saved.MonitoringDisconnectEmail,
             InvitationEmail = saved.InvitationEmail
         });
     }
@@ -34,8 +36,10 @@ public sealed class SettingsController(UserPreferenceService preferences) : Cont
         {
             // Admin Settings exposes appearance only; do not overwrite retained user-channel choices.
             var saved = await preferences.GetAsync(Owner, ct);
+            model.FinancialInApp = saved.FinancialInApp; model.FinancialEmail = saved.FinancialEmail;
             model.BillInApp = saved.BillInApp; model.BillEmail = saved.BillEmail;
             model.MonitoringInApp = saved.MonitoringInApp; model.MonitoringEmail = saved.MonitoringEmail;
+            model.MonitoringDisconnectInApp = saved.MonitoringDisconnectInApp; model.MonitoringDisconnectEmail = saved.MonitoringDisconnectEmail;
             model.InvitationEmail = saved.InvitationEmail;
         }
         try { await preferences.SaveAsync(Owner, model, ct); }

@@ -1,0 +1,15 @@
+﻿@model IPFMMS.ViewModels.SharedSharesViewModel
+@{ ViewData["Title"] = "Member shares"; Layout = "_DashboardLayout"; }
+<div class="container-fluid py-4"><div class="card border-0 shadow-sm mx-auto" style="max-width:760px"><div class="card-body p-4">
+<h2 class="h4 fw-bold">Expected shares · @Model.GroupName</h2>
+<p class="text-muted">Set each accepted member's share of the monthly budget or savings target. Shares must total 100%. Actual payments remain separately recorded. Joining or leaving resets this plan for review.</p>
+<form asp-action="Shares" method="post"><input asp-for="Id" type="hidden"/><input asp-for="Revision" type="hidden"/>
+<div asp-validation-summary="All" class="text-danger" role="alert"></div>
+@for (var i = 0; i < Model.Members.Count; i++) {
+<div class="mb-3"><input asp-for="Members[i].UserId" type="hidden"/><label asp-for="Members[i].Percentage" class="form-label">@Model.Members[i].Name (%)</label>
+<input asp-for="Members[i].Percentage" type="number" min="0" max="100" step="0.01" required class="form-control"/><span asp-validation-for="Members[i].Percentage" class="text-danger"></span></div>
+}
+<p id="shareTotal" class="small" aria-live="polite"></p>
+<div class="d-flex justify-content-end gap-2"><a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a><button class="btn btn-primary" type="submit">Save shares</button></div>
+</form></div></div></div>
+@section Scripts { <script>(() => { const inputs = [...document.querySelectorAll('input[type=number]')]; function total() { const sum = inputs.reduce((s,i) => s + Math.round(Number(i.value || 0)*100), 0); document.getElementById('shareTotal').textContent = 'Total: ' + (sum / 100).toFixed(2) + '% (required: 100%)'; } inputs.forEach(i => i.addEventListener('input', total)); total(); })();</script> }

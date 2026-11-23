@@ -9,7 +9,7 @@ public sealed class MonitoringAlertService(ApplicationDbContext db, IdGeneratorS
     MonitoringLinkService links, FinancialHealthService health, NotificationEmailService email)
 {
     public const decimal LowHealthThreshold = 40m;
-    public async Task RefreshAsync(string recipient, DateTime today, CancellationToken ct = default)
+    public async Task RefreshAsync(string recipient, DateTime today, CancellationToken ct = default, bool deliverEmail = true)
     {
         if (string.IsNullOrWhiteSpace(recipient)) throw new ArgumentException("A recipient is required.");
         var month = new DateTime(today.Year, today.Month, 1);
@@ -68,6 +68,6 @@ public sealed class MonitoringAlertService(ApplicationDbContext db, IdGeneratorS
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
         }
-        await email.DeliverPendingAsync(recipient, ct);
+        if (deliverEmail) await email.DeliverPendingAsync(recipient, ct);
     }
 }

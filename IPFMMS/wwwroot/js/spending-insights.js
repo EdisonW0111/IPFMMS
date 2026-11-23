@@ -22,6 +22,7 @@
         finally{if(current===version){loading.classList.add('d-none');results.setAttribute('aria-busy','false');pending=null;}}
     }
     month.addEventListener('change',load);
+    form.querySelector('button[type="submit"]')?.setAttribute('hidden', '');
     form.addEventListener('submit',e=>{e.preventDefault();load();});
     document.getElementById('insightsRetry').addEventListener('click',load);
 })();

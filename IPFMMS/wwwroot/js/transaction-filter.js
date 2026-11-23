@@ -182,6 +182,7 @@
     }
 
     // Apply Filters button / Enter key.
+    form.querySelector('button[type="submit"]')?.setAttribute('hidden', '');
     form.addEventListener("submit", function (event) {
 
         event.preventDefault();

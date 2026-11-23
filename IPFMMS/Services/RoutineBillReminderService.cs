@@ -7,9 +7,9 @@ using Microsoft.EntityFrameworkCore;
 namespace IPFMMS.Services;
 public sealed class RoutineBillReminderService(ApplicationDbContext db,IdGeneratorService ids,NotificationEmailService email,IConfiguration config)
 {
-    public async Task RefreshAsync(string owner,DateTime today,CancellationToken ct=default)
+    public async Task RefreshAsync(string owner,DateTime today,CancellationToken ct=default, bool deliverEmail=true)
     {
-        if(!config.GetValue<bool>("RoutineBills:RemindersEnabled"))return;
+        if(!config.GetValue<bool>("RoutineBills:RemindersEnabled", true))return;
         today=today.Date;
         await using(var tx=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable,ct))
         {
@@ -31,6 +31,6 @@ public sealed class RoutineBillReminderService(ApplicationDbContext db,IdGenerat
             }
             await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
         }
-        await email.DeliverPendingAsync(owner,ct);
+        if (deliverEmail) await email.DeliverPendingAsync(owner,ct);
     }
 }

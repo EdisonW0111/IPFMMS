@@ -1,4 +1,4 @@
-using IPFMMS.Data;
+﻿using IPFMMS.Data;
 using IPFMMS.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,19 +9,28 @@ public sealed class AutomaticSavingsService(ApplicationDbContext db, IdGenerator
     public async Task ProcessDueAsync(DateTime today, CancellationToken cancellationToken = default)
     {
         today = today.Date;
-        var due = await db.SavingsGoals.AsNoTracking()
-            .Where(g => g.User!.AccountStatus == "Active" && g.Status == "Active" && g.SavingsMethod == "AutomaticMonthlyTarget" &&
-                g.NextAutomaticSavingDate != null && g.NextAutomaticSavingDate <= today)
-            .OrderBy(g => g.NextAutomaticSavingDate).ThenBy(g => g.SavingsGoalId)
-            .Select(g => g.SavingsGoalId).Take(100).ToListAsync(cancellationToken);
-        foreach (var id in due)
+        string? cursor = null;
+        while (!cancellationToken.IsCancellationRequested)
         {
-            // Every goal gets its own atomic transaction, bounded to 12 dates per run.
-            for (int count = 0; count < 12; count++)
+            var due = await db.SavingsGoals.AsNoTracking()
+                .Where(g => (cursor == null || g.SavingsGoalId.CompareTo(cursor) > 0) && g.User!.AccountStatus == "Active" && g.Status == "Active" && g.SavingsMethod == "AutomaticMonthlyTarget" &&
+                    ((g.NextAutomaticSavingDate != null && g.NextAutomaticSavingDate <= today) ||
+                     db.SavingsAutomaticAttempts.Any(a => a.SavingsGoalId == g.SavingsGoalId &&
+                        (a.Status == "InsufficientFunds" || a.Status == "MissedOffline") && a.DueDate.Year == today.Year &&
+                        a.DueDate.Month == today.Month && a.DueDate <= today && g.TargetDate >= today)))
+                .OrderBy(g => g.SavingsGoalId)
+                .Select(g => g.SavingsGoalId).Take(100).ToListAsync(cancellationToken);
+            if (due.Count == 0) break;
+            foreach (var id in due)
             {
-                db.ChangeTracker.Clear();
-                if (!await ProcessOneAsync(id, today, cancellationToken)) break;
+                // Every goal gets its own atomic transaction, bounded to 12 dates per run.
+                for (int count = 0; count < 12; count++)
+                {
+                    db.ChangeTracker.Clear();
+                    if (!await ProcessOneAsync(id, today, cancellationToken)) break;
+                }
             }
+            cursor = due[^1];
         }
     }
 
@@ -37,16 +46,21 @@ public sealed class AutomaticSavingsService(ApplicationDbContext db, IdGenerator
         if (users.Count == 0 || users[0].AccountStatus != "Active") return false;
         var goal = await db.SavingsGoals.SingleOrDefaultAsync(g => g.SavingsGoalId == id && g.UserId == owner, ct);
         if (goal == null || goal.Status != "Active" || goal.SavingsMethod != "AutomaticMonthlyTarget" ||
-            goal.NextAutomaticSavingDate is not DateTime date || date > today ||
+            goal.NextAutomaticSavingDate is not DateTime date ||
             goal.AutomaticSavingDay is not (>= 1 and <= 28) || goal.MonthlyTargetAmount is not > 0m)
             return false;
+        var retry = await db.SavingsAutomaticAttempts.AsNoTracking().Where(a => a.SavingsGoalId == id &&
+            (a.Status == "InsufficientFunds" || a.Status == "MissedOffline") && a.DueDate.Year == today.Year &&
+            a.DueDate.Month == today.Month && a.DueDate <= today).OrderBy(a => a.DueDate).FirstOrDefaultAsync(ct);
+        if (retry != null && retry.DueDate < date && today <= goal.TargetDate.Date) date = retry.DueDate;
+        if (date > today) return false;
         if (date > goal.TargetDate.Date)
         {
             goal.NextAutomaticSavingDate = null;
             await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return false;
         }
-        bool exists = await db.SavingsAutomaticAttempts.AnyAsync(a => a.SavingsGoalId == id && a.DueDate.Year == date.Year && a.DueDate.Month == date.Month, ct);
-        if (exists)
+        var previous = await db.SavingsAutomaticAttempts.SingleOrDefaultAsync(a => a.SavingsGoalId == id && a.DueDate.Year == date.Year && a.DueDate.Month == date.Month, ct);
+        if (previous != null && ((previous.Status != "InsufficientFunds" && previous.Status != "MissedOffline") || date.Year != today.Year || date.Month != today.Month))
         {
             goal.NextAutomaticSavingDate = date.AddMonths(1);
             await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return true;
@@ -63,23 +77,18 @@ public sealed class AutomaticSavingsService(ApplicationDbContext db, IdGenerator
         decimal used = await attempts.SumAsync(a => (decimal?)a.CreditApplied, ct) ?? 0m;
         var plan = AutomaticSavingsPlan.Calculate(goal.MonthlyTargetAmount.Value, goal.TargetAmount-saved,
             saved, goal.AutomaticSavingsBaseline ?? saved, paid, used);
-        var attempt = new SavingsAutomaticAttempt
+        var attempt = previous ?? new SavingsAutomaticAttempt
         {
             SavingsGoalId = id, DueDate = date, PlannedAmount = goal.MonthlyTargetAmount.Value,
             ProcessedAtUtc = DateTime.UtcNow
         };
-        if (date < today)
+        attempt.ProcessedAtUtc = DateTime.UtcNow;
+        if (date.Year != today.Year || date.Month != today.Month || today > goal.TargetDate.Date)
             attempt.Status = "MissedOffline";
         else
         {
-            decimal income = await db.Incomes.Where(i => i.UserId == owner && i.IncomeDate <= today)
-                .SumAsync(i => (decimal?)i.Amount, ct) ?? 0m;
-            decimal expenses = await db.Expenses.Where(e => e.UserId == owner && e.ExpenseDate <= today)
-                .SumAsync(e => (decimal?)e.Amount, ct) ?? 0m;
-            decimal allocated = await db.SavingsContributions.Where(c => c.SavingsGoal!.UserId == owner)
-                .SumAsync(c => (decimal?)c.Amount, ct) ?? 0m;
-            allocated += await SharedSavingsAllocations.NetAsync(db,owner,ct:ct);
-            if (plan.Deduction > 0m && income-expenses-allocated < plan.Deduction)
+            var available = await AvailableFundsService.BalanceAsync(db, owner, today, ct: ct);
+            if (plan.Deduction > 0m && available < plan.Deduction)
                 attempt.Status = "InsufficientFunds";
             else
             {
@@ -96,10 +105,10 @@ public sealed class AutomaticSavingsService(ApplicationDbContext db, IdGenerator
                 if (saved+plan.Deduction >= goal.TargetAmount) goal.Status = "Completed";
             }
         }
-        db.SavingsAutomaticAttempts.Add(attempt);
-        goal.NextAutomaticSavingDate = date.AddMonths(1);
+        if (previous == null) db.SavingsAutomaticAttempts.Add(attempt);
+        goal.NextAutomaticSavingDate = attempt.Status == "InsufficientFunds" ? date : date.AddMonths(1);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return true;
+        return attempt.Status != "InsufficientFunds";
     }
 }

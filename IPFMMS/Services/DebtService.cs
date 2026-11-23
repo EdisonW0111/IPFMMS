@@ -89,6 +89,8 @@ public sealed class DebtService(ApplicationDbContext db,IdGeneratorService ids)
         if(d.calculationMode=="Manual"&&m.Amount<d.outstandingAmount&&m.NextDueDate.HasValue&&(m.NextDueDate.Value.Year<1000||m.NextDueDate.Value.Date<=d.dueDate))throw new InvalidOperationException("The next due date must be later than the current due date, or leave it blank to keep the current date.");
         var categories=await db.ExpenseCategories.FromSqlInterpolated($"SELECT * FROM `ExpenseCategories` WHERE `CategoryName` = {"Debt Repayment"} LOCK IN SHARE MODE").AsNoTracking().ToListAsync(ct);
         if(categories.Count!=1||!categories[0].IsActive)throw new InvalidOperationException("The Debt Repayment expense category must exist and be active. Contact the administrator.");
+        var available = await AvailableFundsService.BalanceAsync(db, owner, DebtOptions.Today, ct: ct);
+        if (m.Amount > available) throw new InvalidOperationException($"Repayment exceeds available funds of RM {Math.Max(0m, available):N2} after expenses and savings allocations.");
         var expense=await ids.GenerateIdAsync("EXP");
         db.Expenses.Add(new Expense{ExpenseId=expense,UserId=owner,ExpenseCategoryId=categories[0].ExpenseCategoryId,Amount=m.Amount!.Value,ExpenseDate=m.PaymentDate!.Value.Date,PaymentMethod=m.PaymentMethod,Description=$"Debt repayment: {d.debtName}"});
         db.DebtRepayments.Add(new DebtRepayment{repaymentId=await ids.GenerateIdAsync("DRP"),debtId=d.debtId,expenseId=expense,repaymentAmount=m.Amount!.Value,repaymentDate=m.PaymentDate.Value.Date,paymentMethod=m.PaymentMethod,remark=string.IsNullOrWhiteSpace(m.Remark)?null:m.Remark.Trim(),principalAmount=principal,interestAmount=interest,

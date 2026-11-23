@@ -6,6 +6,8 @@ namespace IPFMMS.ViewModels
     {
         [Required]
         public string BudgetId { get; set; } = string.Empty;
+        [RegularExpression("^(month|series)$")]
+        public string EditScope { get; set; } = "month";
         public string CategoryName { get; set; } = string.Empty;
         public DateTime BudgetMonth { get; set; }
 
@@ -49,6 +51,8 @@ namespace IPFMMS.ViewModels
         public int FutureSeriesCount { get; set; }
         public bool HasUnlinkedCategoryBudgets { get; set; }
         public string BudgetId { get; set; } = string.Empty;
+        [RegularExpression("^(month|series)$")]
+        public string EditScope { get; set; } = "month";
         public string CategoryName { get; set; } = string.Empty;
         public DateTime BudgetMonth { get; set; }
         public string BudgetType { get; set; } = string.Empty;

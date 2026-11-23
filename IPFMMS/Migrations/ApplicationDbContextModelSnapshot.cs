@@ -1216,6 +1216,9 @@ namespace IPFMMS.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<decimal?>("sharePercentage")
+                        .HasColumnType("decimal(5,2)");
+
                     b.HasKey("sharedFinanceId", "userId");
 
                     b.HasIndex("userId", "invitationStatus");
@@ -1415,7 +1418,27 @@ namespace IPFMMS.Migrations
                         .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("FinancialEmail")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("FinancialInApp")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
                     b.Property<bool>("InvitationEmail")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("MonitoringDisconnectEmail")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint(1)")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("MonitoringDisconnectInApp")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("tinyint(1)")
                         .HasDefaultValue(true);

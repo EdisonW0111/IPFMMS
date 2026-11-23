@@ -45,10 +45,14 @@ public sealed class UserPreferenceService(ApplicationDbContext db)
             db.UserPreferences.Add(preference);
         }
         preference.Theme = model.Theme;
+        preference.FinancialInApp = model.FinancialInApp;
+        preference.FinancialEmail = model.FinancialEmail;
         preference.BillInApp = model.BillInApp;
         preference.BillEmail = model.BillEmail;
         preference.MonitoringInApp = model.MonitoringInApp;
         preference.MonitoringEmail = model.MonitoringEmail;
+        preference.MonitoringDisconnectInApp = model.MonitoringDisconnectInApp;
+        preference.MonitoringDisconnectEmail = model.MonitoringDisconnectEmail;
         preference.InvitationEmail = model.InvitationEmail;
         preference.Revision++;
         await db.SaveChangesAsync(ct);
@@ -56,8 +60,14 @@ public sealed class UserPreferenceService(ApplicationDbContext db)
         // Re-enabling applies to future events; it does not release an old email backlog.
         var pending = db.Notifications.Where(n => n.userId == owner
             && (n.emailStatus == "Pending" || n.emailStatus == "Failed" || n.emailStatus == "NotRequested"));
+        if (!model.FinancialEmail)
+            await pending.Where(n => n.notificationType.StartsWith("Personal") || n.notificationType == "DebtReminder" || n.notificationType == "AutomaticSavings")
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.emailStatus, "Disabled"), ct);
         if (!model.BillEmail)
             await pending.Where(n => n.notificationType == "BillUpcoming" || n.notificationType == "BillDueToday" || n.notificationType == "BillOverdue")
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.emailStatus, "Disabled"), ct);
+        if (!model.MonitoringDisconnectEmail)
+            await pending.Where(n => n.notificationType == "MonitoringDisconnected")
                 .ExecuteUpdateAsync(s => s.SetProperty(n => n.emailStatus, "Disabled"), ct);
         if (!model.MonitoringEmail)
             await pending.Where(n => n.notificationType == "BudgetOverspending" || n.notificationType == "LowFinancialHealth")

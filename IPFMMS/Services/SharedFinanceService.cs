@@ -154,7 +154,33 @@ public sealed class SharedFinanceService(ApplicationDbContext db,IdGeneratorServ
     public async Task DecideAsync(string actor,string id,int version,bool accept,CancellationToken ct=default)
     {
         var state=await Locked(actor,id,false,ct);await using var tx=state.Tx;var g=state.Finance;var m=await db.SharedFinanceMembers.SingleOrDefaultAsync(m=>m.sharedFinanceId==id&&m.userId==actor,ct);
-        if(m==null||m.memberRole=="Owner"||m.invitationStatus!="Pending"||m.invitationVersion!=version)throw new SharedAccessException();if(g.status!="Active")throw new InvalidOperationException("This arrangement is inactive.");m.invitationStatus=accept?"Accepted":"Rejected";m.joinedDate=accept?DateTime.UtcNow:null;g.revision++;await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
+        if(m==null||m.memberRole=="Owner"||m.invitationStatus!="Pending"||m.invitationVersion!=version)throw new SharedAccessException();if(g.status!="Active")throw new InvalidOperationException("This arrangement is inactive.");m.invitationStatus=accept?"Accepted":"Rejected";m.joinedDate=accept?DateTime.UtcNow:null;if(accept)await ResetSharesAsync(id,ct);g.revision++;await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
+    }
+    public async Task SetSharesAsync(string actor, SharedSharesViewModel model, CancellationToken ct = default)
+    {
+        var state = await Locked(actor, model.Id, false, ct);
+        await using var tx = state.Tx;
+        var group = state.Finance;
+        await OwnerMembership(actor, group, ct);
+        if (group.status != "Active") throw new InvalidOperationException("Activate this group before setting shares.");
+        if (group.revision != model.Revision) throw new InvalidOperationException("Group membership or settings changed. Reopen the shares page.");
+        var members = await db.SharedFinanceMembers.Where(m => m.sharedFinanceId == model.Id && m.invitationStatus == "Accepted").ToListAsync(ct);
+        foreach (var member in members) await db.Entry(member).ReloadAsync(ct);
+        var rows = model.Members;
+        if (rows == null || rows.Count != members.Count || rows.Select(r => r.UserId).Distinct(StringComparer.OrdinalIgnoreCase).Count() != members.Count ||
+            rows.Any(r => !members.Any(m => string.Equals(m.userId, r.UserId, StringComparison.OrdinalIgnoreCase))))
+            throw new InvalidOperationException("The accepted member list changed. Reopen this page.");
+        if (rows.Any(r => !r.Percentage.HasValue || r.Percentage < 0m || r.Percentage > 100m || decimal.Round(r.Percentage.Value, 2) != r.Percentage))
+            throw new InvalidOperationException("Enter each member's share from 0% to 100%, with at most two decimal places.");
+        if (rows.Sum(r => r.Percentage!.Value) != 100m) throw new InvalidOperationException("Member shares must total exactly 100%.");
+        foreach (var member in members) member.sharePercentage = rows.Single(r => string.Equals(r.UserId, member.userId, StringComparison.OrdinalIgnoreCase)).Percentage;
+        group.revision++;
+        await db.SaveChangesAsync(ct); await tx.CommitAsync(ct);
+    }
+    private async Task ResetSharesAsync(string id, CancellationToken ct)
+    {
+        var members = await db.SharedFinanceMembers.Where(m => m.sharedFinanceId == id).ToListAsync(ct);
+        foreach (var member in members) member.sharePercentage = null;
     }
     public async Task PromoteOwnerAsync(string actor,string id,string target,int revision,int version,CancellationToken ct=default)
     {
@@ -183,7 +209,7 @@ public sealed class SharedFinanceService(ApplicationDbContext db,IdGeneratorServ
         if(m==null)throw new SharedAccessException();await db.Entry(m).ReloadAsync(ct);
         if(m.invitationVersion!=version||m.memberRole=="Owner")throw new SharedAccessException();
         if(action=="Cancel"&&m.invitationStatus=="Pending")m.invitationStatus="Cancelled";
-        else if(action=="Remove"&&m.invitationStatus=="Accepted"){if(await SavedAsync(id,m.userId,ct)>0)throw new InvalidOperationException("This member must release their savings allocation before removal.");m.invitationStatus="Removed";}
+        else if(action=="Remove"&&m.invitationStatus=="Accepted"){if(await SavedAsync(id,m.userId,ct)>0)throw new InvalidOperationException("This member must release their savings allocation before removal.");m.invitationStatus="Removed";await ResetSharesAsync(id,ct);}
         else throw new InvalidOperationException("This member state changed; reload the page.");g.revision++;await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
     }
     public async Task LeaveAsync(string actor,string id,CancellationToken ct=default)
@@ -193,7 +219,7 @@ public sealed class SharedFinanceService(ApplicationDbContext db,IdGeneratorServ
             &&other.userId!=m.userId&&other.memberRole=="Owner"&&other.invitationStatus=="Accepted"
             &&other.User!.AccountStatus==AccountStatus.Active&&(other.User.Role=="User"||other.User.Role=="Parent"),ct))
             throw new InvalidOperationException("The last active Owner cannot leave. Promote another active Member to Owner first.");
-        if(await SavedAsync(id,actor,ct)>0)throw new InvalidOperationException("Release your savings allocation before leaving.");m.invitationStatus="Left";g.revision++;await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
+        if(await SavedAsync(id,actor,ct)>0)throw new InvalidOperationException("Release your savings allocation before leaving.");m.invitationStatus="Left";await ResetSharesAsync(id,ct);g.revision++;await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);
     }
     public async Task DeliverInviteAsync(string actor,string id,string target,int version,CancellationToken ct=default)
     {

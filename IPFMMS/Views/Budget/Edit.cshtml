@@ -11,7 +11,7 @@
             <div class="mb-4">
                 <h2 class="fw-bold mb-1">Edit Budget</h2>
                 <p class="text-muted mb-0">
-                    Update this monthly budget and its category repeat settings.
+                    Choose whether your changes apply to this month or its repeating series.
                 </p>
             </div>
 
@@ -35,6 +35,15 @@
                             <p>@Model.BudgetMonth.ToString("MMMM yyyy")</p>
                         </div>
 
+                        <div class="mb-4">
+                            <label asp-for="EditScope" class="form-label">Apply changes to</label>
+                            <select asp-for="EditScope" class="form-select" required>
+                                <option value="month">This month only</option>
+                                <option value="series">This month and future months in this repeating series</option>
+                            </select>
+                            <span asp-validation-for="EditScope" class="text-danger"></span>
+                            <div class="form-text">Past months and separately created budgets are preserved.</div>
+                        </div>
                         <div class="mb-4">
                             <label asp-for="BudgetType" class="form-label fw-semibold"></label>
                             <select asp-for="BudgetType"
@@ -89,8 +98,8 @@
                                 <label asp-for="RepeatMonthly" class="form-check-label fw-semibold"></label>
                             </div>
                             <div id="repeatHelp" class="form-text">
-                                Checked: use these edited settings for new budgets from the following month.
-                                Unchecked: stop category repetition. Other saved monthly budgets stay unchanged.
+                                For series edits, checked: continue creating budgets with these settings.
+                                Unchecked: stop generating new months. Already saved future months receive the edited values.
                             </div>
                             <span asp-validation-for="RepeatMonthly" id="repeatError" class="text-danger small"></span>
                         </div>
@@ -102,7 +111,7 @@
                             <span asp-validation-for="RepeatUntil" id="repeatUntilError" class="text-danger small"></span>
                             <div id="repeatUntilHelp" class="form-text">
                                 Include this month, then stop creating new budgets. Leave blank to repeat until turned off.
-                                Existing monthly budgets remain unchanged.
+                                Saved future months remain in the series; this date controls new months.
                             </div>
                         </div>
 
@@ -145,11 +154,15 @@
             const repeat = document.getElementById('RepeatMonthly');
             const repeatUntil = document.getElementById('RepeatUntil');
             function updateRepeatFields() {
-                document.getElementById('repeatUntilGroup').hidden = !repeat.checked;
-                repeatUntil.disabled = !repeat.checked;
+                const series = document.getElementById('EditScope').value === 'series';
+                repeat.disabled = !series;
+                repeat.closest('.mb-4').hidden = !series;
+                document.getElementById('repeatUntilGroup').hidden = !series || !repeat.checked;
+                repeatUntil.disabled = !series || !repeat.checked;
                 repeatUntil.min = '@Model.BudgetMonth.ToString("yyyy-MM")';
             }
             repeat.addEventListener('change', updateRepeatFields);
+            document.getElementById('EditScope').addEventListener('change', updateRepeatFields);
             updateRepeatFields();
 
             budgetType.addEventListener('change', updateBudgetFields);

@@ -43,6 +43,8 @@ builder.Services.AddScoped<MonitoringAlertService>();
 builder.Services.AddScoped<MonitoringAlertRunner>();
 builder.Services.AddHostedService<MonitoringAlertWorker>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<PersonalNotificationService>();
+builder.Services.AddHostedService<PersonalNotificationWorker>();
     builder.Services.AddScoped<UserPreferenceService>();
 builder.Services.AddScoped<RoutineBillService>();
 builder.Services.AddScoped<DebtService>();
