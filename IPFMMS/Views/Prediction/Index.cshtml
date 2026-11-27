@@ -14,7 +14,6 @@
     <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
     <form asp-action="Index" method="get" class="d-flex flex-wrap gap-3 align-items-end mb-4" id="predictionFilter">
         <div><label for="predictionMonth" class="form-label">Prediction month</label><input type="month" id="predictionMonth" name="month" class="form-control" min="1000-04" max="@ViewData["CurrentMonth"]" value="@MonthKey(Model.Month)" required /></div>
-        <button type="submit" class="btn btn-outline-primary">View prediction</button>
     </form>
     <section class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
         <h3 class="h5 fw-bold">Prediction for @Model.Month.ToString("MMMM yyyy")</h3>

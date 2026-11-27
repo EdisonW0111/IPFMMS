@@ -12,7 +12,6 @@
     <div asp-validation-summary="All" class="text-danger mb-3" role="alert"></div>
     <form asp-action="Index" method="get" class="d-flex flex-wrap gap-3 align-items-end mb-4" id="healthFilter">
         <div><label for="healthMonth" class="form-label">Score month</label><input type="month" id="healthMonth" name="month" class="form-control" min="1000-04" max="@ViewData["CurrentMonth"]" value="@Model.MonthValue" required /></div>
-        <button type="submit" class="btn btn-outline-primary">View month</button>
     </form>
     <div class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
         <div class="d-flex flex-wrap gap-4 justify-content-between align-items-center">
